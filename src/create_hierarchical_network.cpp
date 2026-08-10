@@ -144,24 +144,24 @@ void print_network(NetworkComplex nc, string message){
             out = fopen(filename.c_str(), "w");
             if(out == NULL){
                 if(! yesno("The file could not be opened. Try again?")){
-		    return;
-		}
+                    return;
+                }
             }
         }
 
-	else{
-	    if(! yesno("No file name was read. Try again?")){
+        else{
+	        if(! yesno("No file name was read. Try again?")){
                 return;
             }
-	}
+	    }
     }
 
     for(Edge e : nc.edges){
         if(e.idx1 >= nc.points.size() || e.idx2 >= nc.points.size()){
-            cerr << "Out of bounds edge: (" << e.idx1 << ", " << e.idx2 << ")\n";
+            cerr << "Out of bounds edge: (" << e.idx1 << ", " << e.idx2 <<")\n";
         }
         Point p1 = nc.points[e.idx1];
-	Point p2 = nc.points[e.idx2];
+        Point p2 = nc.points[e.idx2];
         fprintf(out, "%10.8lf %10.8lf \n%10.8lf %10.8lf \n\n", p1.x, p1.y, p2.x, p2.y);
     }
 
@@ -177,17 +177,18 @@ void print_network_compact(NetworkComplex nc, string message){
         cout << message;
         getline(cin, nextline);
         tokens = split(nextline, ' ');
-	if(tokens.size() > 0){
+        if(tokens.size() > 0){
             filename = tokens[0];
             out = fopen(filename.c_str(), "w");
             if(out == NULL){
                 if(! yesno("The file could not be opened. Try again?")){
-		    return;
-		}
+		            return;
+		        }
             }
-	}
-	else{
-	    if(! yesno("No file name was read. Try again?")){
+        }
+
+        else{
+	        if(! yesno("No file name was read. Try again?")){
                 return;
             }
         }
@@ -436,7 +437,7 @@ void reassign_points_edges(NetworkComplex &nc, vector<Edge> kept_edges){
     //Make a map from indices of retained points to their new indices
     for(int point : kept_indices){
         reassignments.insert(make_pair(point, reassignments.size()));
-	kept_points.push_back(nc.points[point]);
+        kept_points.push_back(nc.points[point]);
     }   
 
     //Reassign edges' endpoint indices based on updated point indices
@@ -529,7 +530,7 @@ void flush_with_edge(Point &pnt, double slope, double y_ext){
 void add_if_missing(Point p, map<Point, int> &pmap, vector<Point> &plist){
     if(pmap.find(p) == pmap.end()){
         pmap.insert(make_pair(p, pmap.size()));
-	plist.push_back(p);
+        plist.push_back(p);
     }
 }
 
@@ -548,27 +549,27 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
 
     for(Edge e : current.edges){
         p1 = current.points[e.idx1];
-	p2 = current.points[e.idx2];
+        p2 = current.points[e.idx2];
 
-	if(p1.y < ymin) ymin = p1.y;
-	if(p2.y < ymin) ymin = p2.y;
-	if(p1.y > ymax) ymax = p1.y;
-	if(p2.y > ymax) ymax = p2.y;
+        if(p1.y < ymin) ymin = p1.y;
+        if(p2.y < ymin) ymin = p2.y;
+        if(p1.y > ymax) ymax = p1.y;
+        if(p2.y > ymax) ymax = p2.y;
 
-	ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
-	if(ang1 < 0) ang1 += 2*M_PI;
-	ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
+        ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
+        if(ang1 < 0) ang1 += 2*M_PI;
+        ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
 
-	if(angmap.find(p1) == angmap.end()){
+        if(angmap.find(p1) == angmap.end()){
             angmap.insert(make_pair(p1, vector<double>()));
         }
 
-	if(angmap.find(p2) == angmap.end()){
+        if(angmap.find(p2) == angmap.end()){
             angmap.insert(make_pair(p2, vector<double>()));
         }
 
-	angmap[p1].push_back(ang1);
-	angmap[p2].push_back(ang2);
+        angmap[p1].push_back(ang1);
+        angmap[p2].push_back(ang2);
     }
 
     ylow = ymin - hwidth;
@@ -576,26 +577,26 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
 
     for(auto iter = angmap.begin(); iter != angmap.end(); iter ++){
         key = iter->first;
-	sort(angmap[key].begin(), angmap[key].end());
+        sort(angmap[key].begin(), angmap[key].end());
     }
 
     for(Edge e : current.edges){
         p1 = current.points[e.idx1];
-	p2 = current.points[e.idx2];
+        p2 = current.points[e.idx2];
 
         ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
-	if(ang1 < 0) ang1 += 2*M_PI;
-	ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
+        if(ang1 < 0) ang1 += 2*M_PI;
+        ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
 
-	slope = abs(p2.x - p1.x) > FLOAT_TOL ? (p2.y - p1.y)/(p2.x - p1.x) : BIG_SLOPE;
-	p1fflag = false;
+        slope = abs(p2.x - p1.x) > FLOAT_TOL ? (p2.y - p1.y)/(p2.x - p1.x) : BIG_SLOPE;
+        p1fflag = false;
         p2fflag = false;
         p3fflag = false;
         p4fflag = false;
         p1_is_end = false;
         p2_is_end = false;
 
-	getangles(angmap[p1], ang1, low, high);
+        getangles(angmap[p1], ang1, low, high);
         if(abs(ang1 - low) < FLOAT_TOL){
             p1_is_end = true;
             p1f = Point(p1.x + hwidth*sin(ang1), p1.y - hwidth*cos(ang1));
@@ -618,7 +619,7 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
             changes(ang1, high, hwidth, dx, dy);
             p3f = Point(p1.x + dx, p1.y + dy);
 
-            if((p1f.y < ylow - FLOAT_TOL || p1f.y > yhigh + FLOAT_TOL) && level){
+            if((p1f.y < ylow - FLOAT_TOL || p1f.y > yhigh + FLOAT_TOL) &&level){
                 y_ext = abs(p1.y - ymin) < FLOAT_TOL ? ylow : yhigh;
                 flush_with_edge(p1f, slope, y_ext);
                 add_if_missing(p1f, point_map, replace_points);
@@ -626,8 +627,9 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
                 add_if_missing(p1fb, point_map, replace_points);
                 p1fflag = true;
             }
-	    else add_if_missing(p1f, point_map, replace_points);
-            if((p3f.y < ylow - FLOAT_TOL || p3f.y > yhigh + FLOAT_TOL) && level){
+
+            else add_if_missing(p1f, point_map, replace_points);
+            if((p3f.y < ylow - FLOAT_TOL || p3f.y > yhigh + FLOAT_TOL) &&level){
                 y_ext = abs(p1.y - ymin) < FLOAT_TOL ? ylow : yhigh;
                 flush_with_edge(p3f, slope, y_ext);
                 add_if_missing(p3f, point_map, replace_points);
@@ -635,10 +637,10 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
                 add_if_missing(p3fb, point_map, replace_points);
                 p3fflag = true;
             }
-	    else add_if_missing(p3f, point_map, replace_points);
+            else add_if_missing(p3f, point_map, replace_points);
         }
 
-	getangles(angmap[p2], ang2, low, high);
+        getangles(angmap[p2], ang2, low, high);
         if(abs(ang2 - low) < FLOAT_TOL){
             p2_is_end = true;
             p2f = Point(p2.x + hwidth*sin(ang1), p2.y - hwidth*cos(ang1));
@@ -655,13 +657,14 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
 
             replace_edges.push_back(Edge(point_map[p2f], point_map[p4f]));
         }
+
         else{
             changes(ang2, high, hwidth, dx, dy);
             p2f = Point(p2.x + dx, p2.y + dy);
             changes(low, ang2, hwidth, dx, dy);
             p4f = Point(p2.x + dx, p2.y + dy);
 
-            if((p2f.y < ylow - FLOAT_TOL || p2f.y > yhigh + FLOAT_TOL) && level){
+            if((p2f.y < ylow - FLOAT_TOL || p2f.y > yhigh + FLOAT_TOL) &&level){
                 y_ext = abs(p2.y - ymin) < FLOAT_TOL ? ylow : yhigh;
                 flush_with_edge(p2f, slope, y_ext);
                 add_if_missing(p2f, point_map, replace_points);
@@ -669,18 +672,17 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
                 add_if_missing(p2fb, point_map, replace_points);
                 p2fflag = true;
             }
-	    else add_if_missing(p2f, point_map, replace_points);
-            if((p4f.y < ylow - FLOAT_TOL || p4f.y > yhigh + FLOAT_TOL) && level){
-                //cerr << "Current p4f: " << p4f.x << "\t" << p4f.y << "\n";
+
+            else add_if_missing(p2f, point_map, replace_points);
+            if((p4f.y < ylow - FLOAT_TOL || p4f.y > yhigh + FLOAT_TOL) &&level){
                 y_ext = abs(p2.y - ymin) < FLOAT_TOL ? ylow : yhigh;
                 flush_with_edge(p4f, slope, y_ext);
                 add_if_missing(p4f, point_map, replace_points);
                 p4fb = Point(p2.x, y_ext);
                 add_if_missing(p4fb, point_map, replace_points);
                 p4fflag = true;
-                //cerr << "New p4f: " << p4f.x << "\t" << p4f.y << "\n\n";
             }
-	    else add_if_missing(p4f, point_map, replace_points);
+            else add_if_missing(p4f, point_map, replace_points);
         }
 
         if(p1fflag) replace_edges.push_back(Edge(point_map[p1fb], point_map[p1f]));
@@ -699,27 +701,27 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
             add_if_missing(p2f, poly_pmap, pc.points);
             add_if_missing(p3f, poly_pmap, pc.points);
             add_if_missing(p4f, poly_pmap, pc.points);
-	    if(p1fflag) add_if_missing(p1fb, poly_pmap, pc.points);
-	    if(p2fflag) add_if_missing(p2fb, poly_pmap, pc.points);
-	    if(p3fflag) add_if_missing(p3fb, poly_pmap, pc.points);
-	    if(p4fflag) add_if_missing(p4fb, poly_pmap, pc.points);
+            if(p1fflag) add_if_missing(p1fb, poly_pmap, pc.points);
+            if(p2fflag) add_if_missing(p2fb, poly_pmap, pc.points);
+            if(p3fflag) add_if_missing(p3fb, poly_pmap, pc.points);
+            if(p4fflag) add_if_missing(p4fb, poly_pmap, pc.points);
 
             vector<int> vertices({poly_pmap[p1f], poly_pmap[p2f]});
 
             if(!p2_is_end){
                 if(p2fflag){
-		    vertices.push_back(poly_pmap[p2fb]);
+                    vertices.push_back(poly_pmap[p2fb]);
                 }
                 vertices.push_back(poly_pmap[p2]);
             
                 if(p4fflag){
-		    vertices.push_back(poly_pmap[p4fb]);
+                    vertices.push_back(poly_pmap[p4fb]);
                 }
             }
             vertices.push_back(poly_pmap[p4f]);
             vertices.push_back(poly_pmap[p3f]);
 
-	    if(! p1_is_end){
+            if(! p1_is_end){
                 if(p3fflag){
                     vertices.push_back(poly_pmap[p3fb]);
                 }
@@ -730,19 +732,19 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
             }
 
             //Make sure the vertices are traversed in CCW order
-	    p1f = pc.points[vertices[0]];
-	    p2f = pc.points[vertices[1]];
-	    p3f = pc.points[vertices[2]];
-	    ang1 = atan2(p1f.y - p2f.y, p1f.x - p2f.x);
-	    if(ang1 < 0) ang1 += 2*M_PI;
-	    ang2 = atan2(p3f.y - p2f.y, p3f.x - p2f.x);
-	    if(ang2 < 0) ang2 += 2*M_PI;
-	    if(ang1 < ang2) reverse(vertices.begin(), vertices.end());
+            p1f = pc.points[vertices[0]];
+            p2f = pc.points[vertices[1]];
+            p3f = pc.points[vertices[2]];
+            ang1 = atan2(p1f.y - p2f.y, p1f.x - p2f.x);
+            if(ang1 < 0) ang1 += 2*M_PI;
+            ang2 = atan2(p3f.y - p2f.y, p3f.x - p2f.x);
+            if(ang2 < 0) ang2 += 2*M_PI;
+            if(ang1 < ang2) reverse(vertices.begin(), vertices.end());
 
-	    //Add the polygon and its edges to the data structure describing
-	    //the polygonal tiling at the large length scale.
+	        //Add the polygon and its edges to the data structure describing
+	        //the polygonal tiling at the large length scale.
             pc.polygons.push_back(NetPolygon(pc.points, vertices, pc.polygons.size()));
-	    for(int idx = 0; idx < vertices.size(); idx++){
+	        for(int idx = 0; idx < vertices.size(); idx++){
                 pc.edges.insert(Edge(vertices[idx], vertices[(idx+1)%vertices.size()]));
             }
         }
@@ -858,24 +860,23 @@ bool import_lattice(vector<vector<double>>& rules, map<int,vector<vector<double>
     
     //Read nearest neighbor rules
     for(vector<double> nextrule : rules){
-       ruleiter ++;
-       for(pointiter = 1; pointiter <= nextrule.size() - 2; pointiter ++){
-           vector<vector<double>> nextset;
-           while(!latfile.eof()){
-               lcount ++;
-               getline(latfile, nextline);
-               if(nextline.empty()) break;
-               nn = parse_doubles(split(nextline, ' '));
-               if(nn.size() != 2) fprintf(stderr, "Insufficient information for nearest neighbor rule on line %d.\n", lcount);
-               else{
+        ruleiter ++;
+        for(pointiter = 1; pointiter <= nextrule.size() - 2; pointiter ++){
+            vector<vector<double>> nextset;
+            while(!latfile.eof()){
+                lcount ++;
+                getline(latfile, nextline);
+                if(nextline.empty()) break;
+                nn = parse_doubles(split(nextline, ' '));
+                if(nn.size() != 2) fprintf(stderr, "Insufficient information for nearest neighbor rule on line %d.\n", lcount);
+                else{
                    scale_vector(nn, scale);
                    nextset.push_back(nn);
-               }
-           }
-           nns.insert(pair<int, vector<vector<double>>>(nncount++, nextset));
-       }
+                }
+            }
+            nns.insert(pair<int, vector<vector<double>>>(nncount++, nextset));
+        }
     }
-
 
     latfile.close();
     return true;
@@ -900,8 +901,6 @@ void get_lattice_info(vector<vector<double>>& rules, map<int,vector<vector<doubl
 }
 
 void loadNetStack(stack<NetData>& net_stack){
-    //vector<vector<double>> rules;
-    //map<int,vector<vector<double>>> nns;
     double width, to_keep;
     bool valid, protect, displace;
     vector<double> response;
@@ -1059,7 +1058,7 @@ NetworkComplex random_connected(NetworkComplex in, double to_keep){
     }
     for(auto iter = kept_indices.begin(); iter != kept_indices.end(); iter++){
         pmap.insert(make_pair(*iter, pmap.size()));
-	kept_points.push_back(in.points[*iter]);
+        kept_points.push_back(in.points[*iter]);
     }
     for(Edge e : kept_edges){
         e.idx1 = pmap[e.idx1];
@@ -1083,7 +1082,7 @@ void displace_points_grn(NetworkComplex &nc, double sdev){
 
     for(int iter = 0; iter < nc.points.size(); iter++){
         nc.points[iter].x += dist(gen);
-	nc.points[iter].y += dist(gen);
+        nc.points[iter].y += dist(gen);
     }
 }
 
@@ -1154,7 +1153,7 @@ vector<Edge> stitch_network(vector<vector<Edge>> collection, map<int, vector<Edg
             for(auto al_iter = next_al.begin()+1; al_iter != next_al.end(); al_iter++){
                 rejects.insert(*al_iter);
             }
-	}
+        }
     }
 
     numNeeded = (int) ((retain.size() + rejects.size()) * to_keep);
@@ -1196,11 +1195,11 @@ NetworkComplex reduced_network(vector<Point> all_points, vector<Edge> kept_edges
     for(Edge e : kept_edges){
         if(pmap.find(e.idx1) == pmap.end()){
             pmap.insert(make_pair(e.idx1, pmap.size()));
-	    reduced.points.push_back(all_points[e.idx1]);
+            reduced.points.push_back(all_points[e.idx1]);
         }
         if(pmap.find(e.idx2) == pmap.end()){
             pmap.insert(make_pair(e.idx2, pmap.size()));
-	    reduced.points.push_back(all_points[e.idx2]);
+            reduced.points.push_back(all_points[e.idx2]);
         }
     }
 
@@ -1224,7 +1223,7 @@ bool interior_crossing(vector<Point> pts, Edge e, PolygonComplex pc, int idx){
 
     for(int iter = 0; iter < num_verts; iter++){
         idx3 = pc.polygons[idx].vertices[iter];
-	idx4 = pc.polygons[idx].vertices[(iter+1) % num_verts];
+        idx4 = pc.polygons[idx].vertices[(iter+1) % num_verts];
         p3 = pc.points[idx3];
         p4 = pc.points[idx4];
         if(intersection(p1, p2, p3, p4)){
@@ -1277,7 +1276,7 @@ NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bot
     //tiles, and if so, which ones.
     for(int pindex = 0; pindex < bottom.points.size(); pindex++){
         vector<int> hits = hnbvh->within(bottom.points[pindex]);
-	if(hits.size() > 0){
+        if(hits.size() > 0){
             sort(hits.begin(), hits.end());
             pmap.insert(make_pair(pindex, hits));
         }
@@ -1293,26 +1292,26 @@ NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bot
             vector<int> hits1 = pmap[e.idx1];
             vector<int> hits2 = pmap[e.idx2];
 
-	    for(int poly1 : hits1){
+            for(int poly1 : hits1){
                 for(int poly2 : hits2){
 
                     //If the indices are equal, add a record of this edge to
-		    //the edges within a given polygonal tile.
-		    if(poly1 == poly2){
+		            //the edges within a given polygonal tile.
+		            if(poly1 == poly2){
                         if(to_keep < 1){
                             edge_collection[poly1].push_back(e);
                             in_points.insert(e.idx1);
                             in_points.insert(e.idx2);
                         }
-			else kept_edges.push_back(e);
-			included = true;
-			break;
+			            else kept_edges.push_back(e);
+			            included = true;
+                        break;
                     }
 
-		    //If the indices are different, determine whether the edge
-		    //straddles an interior edge shared between two tiles. Only
-		    //in this case should the edge be kept.
-		    else{
+		            //If the indices are different, determine whether the edge
+		            //straddles an interior edge shared between two tiles. Only
+		            //in this case should the edge be kept.
+		            else{
                         if(interior_crossing(bottom.points, e, pc, poly1)){
                             if(to_keep < 1){
                                 adj_idx = adj_map_index(poly1, poly2, pc.polygons.size());
@@ -1320,16 +1319,17 @@ NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bot
                                     adj_map.insert(make_pair(adj_idx, vector<Edge>()));
                                 }
                                 adj_map[adj_idx].push_back(e);
-			        in_points.insert(e.idx1);
-			        in_points.insert(e.idx2);
+			                    in_points.insert(e.idx1);
+			                    in_points.insert(e.idx2);
                             }
-			    else kept_edges.push_back(e);
-			    included = true;
-			    break;
+
+                            else kept_edges.push_back(e);
+                            included = true;
+                            break;
                         }
                     }
                 }
-		if(included) break;
+		        if(included) break;
             }
         }
     }
@@ -1352,18 +1352,18 @@ map<IdxPair, GrainFusion> get_border_map(PolygonComplex pc){
         vector<int> vertices = pc.polygons[piter].vertices;
         for(int viter = 0; viter < vertices.size(); viter ++){
             IdxPair pair = IdxPair(vertices[viter], vertices[(viter+1)%vertices.size()]);
-	    if(neighbor_map.find(pair) == neighbor_map.end()){
+            if(neighbor_map.find(pair) == neighbor_map.end()){
                 neighbor_map.insert(make_pair(pair, vector<int>()));
             }
-	    neighbor_map[pair].push_back(piter);
+            neighbor_map[pair].push_back(piter);
         }
     }
 
     for(auto iter = neighbor_map.begin(); iter != neighbor_map.end(); iter++){
         if(iter->second.size() < 2) continue;
         GrainFusion gf;
-	gf.p1 = pc.points[iter->first.idx1];
-	gf.p2 = pc.points[iter->first.idx2];
+        gf.p1 = pc.points[iter->first.idx1];
+        gf.p2 = pc.points[iter->first.idx2];
         border_map.insert(make_pair(IdxPair(iter->second[0],iter->second[1]), gf));
     }
 
@@ -1419,8 +1419,8 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
         NetPolygon grain = pc.polygons[index];
         vector<Point> copy;
 
-	//Find the vertices of the grain and rotate them so that the large-scale
-	//bond from which the grain was made is oriented horizontally
+	    //Find the vertices of the grain and rotate them so that the large-scale
+	    //bond from which the grain was made is oriented horizontally
         for(int iter = 0; iter < grain.vertices.size(); iter++){
             copy.push_back(pc.points[grain.vertices[iter]]);
         }
@@ -1432,7 +1432,7 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
         midpoint = Point((left + right)/2, (high+low)/2);
         rotate_point(midpoint, angle, pivot);
         bounds[2] = length + h_offset;
-	NetworkComplex grain_nc;
+        NetworkComplex grain_nc;
         makeedges(rules, nns, bounds, grain_nc);
         get_extremes(grain_nc.points, left, low, right, high);
         displace(grain_nc.points, midpoint.x - (left+right)/2, midpoint.y - (high+low)/2);
@@ -1448,42 +1448,43 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
             if(contains_1){
                 if(pmap.find(p1) == pmap.end()){
                     pmap.insert(make_pair(p1, pmap.size()));
-		    points.push_back(p1);
+                    points.push_back(p1);
                 }
             }
 
             if(contains_2){
                 if(pmap.find(p2) == pmap.end()){
                     pmap.insert(make_pair(p2, pmap.size()));
-		    points.push_back(p2);
+                    points.push_back(p2);
                 }
             }
 
             //Identify edges entirely within a grain
             if(contains_1 && contains_2){
                 if(to_keep == 1) retain.push_back(Edge(pmap[p1], pmap[p2]));
-		else grain_lists[index].push_back(Edge(pmap[p1], pmap[p2]));
+                else grain_lists[index].push_back(Edge(pmap[p1], pmap[p2]));
             }
 
             //Identify edges with one point in the current grain and the other
             //point in a neighboring grain
             else if(contains_1 || contains_2){
                 vector<int> hits; 
-		if(contains_1){
+                 if(contains_1){
                     hits = hnbvh->within(p2);
-		    pt_index = pmap[p1];
+                    pt_index = pmap[p1];
                 }
-		else{
+                else{
                     hits = hnbvh->within(p1);
-		    pt_index = pmap[p2];
+                    pt_index = pmap[p2];
                 }
-		for(int next_hit : hits){
+
+                for(int next_hit : hits){
                     IdxPair pair = IdxPair(index, next_hit);
                     if(border_map.find(pair) != border_map.end()){
                         if(index < next_hit){
                             border_map[pair].list1.insert(points[pt_index]);
                         }
-			else{
+                    else{
                             border_map[pair].list2.insert(points[pt_index]);
                         }
                     }
@@ -1498,41 +1499,42 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
             continue;
         }
 
-	vector<Edge> stitch_edges;
-	vector<Point> list1, list2;
-	list1.assign(border_map[iter->first].list1.begin(), border_map[iter->first].list1.end());
-	list2.assign(border_map[iter->first].list2.begin(), border_map[iter->first].list2.end());
-	shuffle(list1.begin(), list1.end(), gen);
+        vector<Edge> stitch_edges;
+        vector<Point> list1, list2;
+        list1.assign(border_map[iter->first].list1.begin(), border_map[iter->first].list1.end());
+        list2.assign(border_map[iter->first].list2.begin(), border_map[iter->first].list2.end());
+        shuffle(list1.begin(), list1.end(), gen);
         shuffle(list2.begin(), list2.end(), gen);
 
-	//Propose edges connecting points on opposite sides of the grain
-	//boundary. Make sure they neither exceed the maximum length nor
-	//intersect already created edges.
+        //Propose edges connecting points on opposite sides of the grain
+        //boundary. Make sure they neither exceed the maximum length nor
+        //intersect already created edges.
         for(Point p1 : list1){
             for(Point p2 : list2){
-		if(distance_sq(p1, p2) > cutoff_sq) continue;
+                if(distance_sq(p1, p2) > cutoff_sq) continue;
                 no_cross = true;
-		for(Edge next_edge : stitch_edges){
+
+                for(Edge next_edge : stitch_edges){
                     p3 = points[next_edge.idx1];
                     p4 = points[next_edge.idx2];
-		    if(intersection(p1, p2, p3, p4)){
+                    if(intersection(p1, p2, p3, p4)){
                         no_cross = false;
-			break;
+                        break;
                     }
                 }
-		if(no_cross){
-		    stitch_edges.push_back(Edge(pmap[p1], pmap[p2]));
+                if(no_cross){
+                    stitch_edges.push_back(Edge(pmap[p1], pmap[p2]));
                 }
             }
         }
 
-	if(to_keep < 1){
+	    if(to_keep < 1){
             int key = adj_map_index(iter->first.idx1, iter->first.idx2, pc.polygons.size());
             adj_map.insert(make_pair(key, stitch_edges));
         }
-	else{
+	    else{
             retain.insert(retain.end(), stitch_edges.begin(), stitch_edges.end());
-	}
+	    }
     }
 
     //If the network is to be diluted, use the procedure for creating a random,
@@ -1540,7 +1542,7 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
     //create a network complex with all edges.
     if(to_keep < 1){
         set<int> in_points;
-	for(int iter = 0; iter < points.size(); iter++) in_points.insert(iter);
+        for(int iter = 0; iter < points.size(); iter++) in_points.insert(iter);
         retain = stitch_network(grain_lists, adj_map, in_points, to_keep);
         final_network = reduced_network(points, retain);
     }
@@ -1567,14 +1569,14 @@ void sort_edges(double length, NetworkComplex bottom, PolygonComplex pc, vector<
         curr_list.clear();
         vector<int> hits1 = hnb->within(bottom.points[next_edge.idx1]);
         vector<int> hits2 = hnb->within(bottom.points[next_edge.idx2]);
-	curr_list.insert(curr_list.end(), hits1.begin(), hits1.end());
-	curr_list.insert(curr_list.end(), hits2.begin(), hits2.end());
-	prev = -1;
-	for(int iter = 0; iter < curr_list.size(); iter ++){
+        curr_list.insert(curr_list.end(), hits1.begin(), hits1.end());
+        curr_list.insert(curr_list.end(), hits2.begin(), hits2.end());
+        prev = -1;
+        for(int iter = 0; iter < curr_list.size(); iter ++){
             if(curr_list[iter] != prev){
                 edge_collection[curr_list[iter]].push_back(next_edge);
             }
-	    prev = curr_list[iter];
+            prev = curr_list[iter];
         }
     }
 }
@@ -1639,8 +1641,8 @@ void prepare_grips_displaced(NetworkComplex &nc, bool connect_top_bottom){
         p1 = nc.points[next.idx1];
         p2 = nc.points[next.idx2];
         nc.edges.erase(nc.edges.begin());
-	miny = p1.y < p2.y ? p1.y : p2.y;
-	maxy = p1.y > p2.y ? p1.y : p2.y;
+        miny = p1.y < p2.y ? p1.y : p2.y;
+        maxy = p1.y > p2.y ? p1.y : p2.y;
         if(miny >= low && maxy <= high){
             replace.push_back(next);
             if(miny == low) bps.insert(find_match(p1, p2, low));
@@ -1650,8 +1652,8 @@ void prepare_grips_displaced(NetworkComplex &nc, bool connect_top_bottom){
         else if(miny < low && maxy >= low){
             intersect_x = x_intersect(nc.points, next, low);
             new_point = Point(intersect_x, low);
-	    pmap.insert(make_pair(new_point, pmap.size()));
-	    nc.points.push_back(new_point);
+            pmap.insert(make_pair(new_point, pmap.size()));
+            nc.points.push_back(new_point);
             replace.push_back(Edge(pmap[new_point], pmap[find_match(p1, p2, maxy)]));
             bps.insert(new_point);
         }
@@ -1659,8 +1661,8 @@ void prepare_grips_displaced(NetworkComplex &nc, bool connect_top_bottom){
         else if(miny <= high && maxy > high){
             intersect_x = x_intersect(nc.points, next, high);
             new_point = Point(intersect_x, high);
-	    pmap.insert(make_pair(new_point, pmap.size()));
-	    nc.points.push_back(new_point);
+            pmap.insert(make_pair(new_point, pmap.size()));
+            nc.points.push_back(new_point);
             replace.push_back(Edge(pmap[find_match(p1, p2, miny)], pmap[new_point]));
             tps.insert(new_point);
         }
@@ -1707,7 +1709,7 @@ struct bottom_sort {
     bool operator() (Edge e1, Edge e2){
         double low1 = min(points[e1.idx1].y, points[e1.idx2].y);
         double low2 = min(points[e2.idx1].y, points[e2.idx2].y);
-	return low1 < low2;
+        return low1 < low2;
     }
 };
 
@@ -1723,7 +1725,7 @@ struct top_sort {
     bool operator() (Edge e1, Edge e2){
         double top1 = max(points[e1.idx1].y, points[e1.idx2].y);
         double top2 = max(points[e2.idx1].y, points[e2.idx2].y);
-	return top1 < top2;
+        return top1 < top2;
     }
 };
 
@@ -1848,18 +1850,18 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
 
     if(polyflag == 1){
 
-	do{
+        do{
             cout << "Enter the name of the polygon file: ";
             getline(cin, response);
-	}while(response.compare("") == 0);
+        }while(response.compare("") == 0);
 
-	poly_report = fopen(response.c_str(), "w");
+        poly_report = fopen(response.c_str(), "w");
 
-	if(poly_report != NULL){
+        if(poly_report != NULL){
             if(verbose) print_polygons_verbose(poly_report, pc);
-	    else print_polygons_concise(poly_report, pc);
-	}
-	else cerr << "The file could not be opened.\n";
+            else print_polygons_concise(poly_report, pc);
+        }
+        else cerr << "The file could not be opened.\n";
     }
 
     if(yesno("Report top network?")){
@@ -1875,37 +1877,33 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
 
             while(true){
                 cout << "Enter the cutoff length for stitch edges: ";
-		getline(cin, response);
-		if(sscanf(response.c_str(), "%lf", &cutoff) == 0){
+                getline(cin, response);
+                if(sscanf(response.c_str(), "%lf", &cutoff) == 0){
                     cerr << "Enter a number.\n";
                 }
-		else if(cutoff < 0) cerr << "Enter a positive number.\n";
+                else if(cutoff < 0) cerr << "Enter a positive number.\n";
 
-		else break;
+                else break;
             }
 
             make_edges_deformed(bdat.rules, bdat.nns, backup, pc, tdat.width, bdat.to_keep, cutoff*cutoff, bottom);
         }
         else{
             makeedges(bdat.rules, bdat.nns, bounds, bottom);
-            //cout << "Check 1\n";
             bottom = sieve_edges(top, length, bottom, pc, bdat.to_keep);
         }
-
-        //cout << "Check2\n";
 
         if(bdat.displace){
             displace_points_grn(bottom, bdat.sdev);
             displacement = true;
         }
 
-        //cout << "Check3\n";
         if(net_stack.empty()){
             if(yesno("Prepare for grips?")){
-		double xlow, ylow, xhigh, yhigh;
-		get_extremes(bottom.points, xlow, ylow, xhigh, yhigh);
+                double xlow, ylow, xhigh, yhigh;
+                get_extremes(bottom.points, xlow, ylow, xhigh, yhigh);
                 prepare_grips(bottom, displacement, connect);
-		get_extremes(bottom.points, xlow, ylow, xhigh, yhigh);
+                get_extremes(bottom.points, xlow, ylow, xhigh, yhigh);
             }
 
             if(getAlign){
@@ -1926,27 +1924,6 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
             }
         }
 
-        /*map<Edge, int> edge_tallies;
-	int duplicate_count = 0;
-
-	for(Edge e : bottom.edges){
-            if(edge_tallies.find(e) == edge_tallies.end()){
-                edge_tallies.insert(make_pair(e, 0));
-            }
-	    edge_tallies[e] ++;
-        }
-
-	for(auto et_iter = edge_tallies.begin(); et_iter != edge_tallies.end(); et_iter++){
-            if(et_iter->second > 1){
-                duplicate_count ++;
-                fprintf(stderr, "%lf\t%lf\n", bottom.points[et_iter->first.idx1].x, bottom.points[et_iter->first.idx1].y);
-                fprintf(stderr, "%lf\t%lf\n\n", bottom.points[et_iter->first.idx2].x, bottom.points[et_iter->first.idx2].y);
-            }
-        }
-
-	cout << "Number of edges: " << bottom.edges.size() << endl;
-	cout << "Number of duplicates: " << duplicate_count << endl;*/
-
         if(bdat.width > 0){
             pc.clear();
             if(!net_stack.empty() && (displace || getAlign)){
@@ -1957,9 +1934,8 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
             add_thickness(bottom, bdat.width, pc, net_stack.size() > 0, !bdat.displace);
         }
 
-	top.assign(bottom);
+        top.assign(bottom);
         length = get_min_dist(bdat.nns);
-        //cout << "Check5\n";
     }
 
     return top;
@@ -1992,8 +1968,8 @@ int main(int argc, char **argv){
                 polyflag = 1;
                 break;
             case 'v':
-		compact = false;
-		break;
+                compact = false;
+                break;
             case '?':
                 if(isprint(optopt)){
                     fprintf(stderr, "Unknown option: -%c.\n", optopt);
@@ -2026,7 +2002,7 @@ int main(int argc, char **argv){
         print_network(nc, "Enter a file name for output: ");
     }
     else{
-	print_network_compact(nc, "Enter a file name for output: ");
+        print_network_compact(nc, "Enter a file name for output: ");
     }
 
     return 0;

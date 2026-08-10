@@ -165,7 +165,7 @@ void HNetBVH::index_polygons() {
     #pragma omp parallel for
     for(iter = 0; iter < polygons.size(); iter ++){
         m_info[iter].poly_idx = iter;
-	m_info[iter].morton_code = morton_code(bounds, polygons[iter]);
+        m_info[iter].morton_code = morton_code(bounds, polygons[iter]);
     }
 
     //Create the initial search tree with build nodes

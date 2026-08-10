@@ -23,7 +23,7 @@ bool point_in_polygon(vector<Point> points, NetPolygon poly, Point query){
         p1[1] = points[poly.vertices[i]].y;
         p2[0] = points[poly.vertices[(i+1)%poly.vertices.size()]].x;
         p2[1] = points[poly.vertices[(i+1)%poly.vertices.size()]].y;
-	if(orient2d(p1, p2, q) < -FLOAT_TOL) return false;
+        if(orient2d(p1, p2, q) < -FLOAT_TOL) return false;
     }
 
     return true;
@@ -182,7 +182,7 @@ void open_output_file(string prompt, ofstream& file_stream){
 void displace(vector<Point> &points, double xdisp, double ydisp){
     for(int iter = 0; iter < points.size(); iter ++){
         points[iter].x += xdisp;
-	points[iter].y += ydisp;
+        points[iter].y += ydisp;
     }
 }
 
@@ -211,8 +211,8 @@ bool intersection(Point p1, Point p2, Point p3, Point p4){
     a2 = orient2d(cpt_1, cpt_2, cpt_3);
     if(a1 * a2 < 0){
         a3 = orient2d(cpt_3, cpt_4, cpt_1);
-	a4 = a3 + a2 - a1;
-	return a3*a4 < 0;
+        a4 = a3 + a2 - a1;
+        return a3*a4 < 0;
     }
     return false;
 }
@@ -225,11 +225,11 @@ void rotate_points(vector<Point> &points, double angle, Point pivot){
 
     for(int iter = 0; iter < points.size(); iter++){
         x = points[iter].x;
-	y = points[iter].y;
+        y = points[iter].y;
         newx = cosine*x - sine*y + pivot.x*(1 - cosine) + pivot.y*sine;
         newy = cosine*y + sine*x + pivot.y*(1 - cosine) - pivot.x*sine;
-	points[iter].x = newx;
-	points[iter].y = newy;
+        points[iter].x = newx;
+        points[iter].y = newy;
     }
 }
 
@@ -255,9 +255,9 @@ void get_extremes(vector<Point> points, double &minx, double &miny, double &maxx
 
     for(Point p : points){
         if(p.x < minx) minx = p.x;
-	if(p.x > maxx) maxx = p.x;
-	if(p.y < miny) miny = p.y;
-	if(p.y > maxy) maxy = p.y;
+        if(p.x > maxx) maxx = p.x;
+        if(p.y < miny) miny = p.y;
+        if(p.y > maxy) maxy = p.y;
     }
 }
 

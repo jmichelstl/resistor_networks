@@ -33,7 +33,7 @@ class HNetBVH {
 
     public:
         HNetBVH(vector<Point> points, vector<NetPolygon> polys);
-	vector<int> within(Point p);
+	    vector<int> within(Point p);
 
     private:
 
@@ -41,15 +41,15 @@ class HNetBVH {
 
         BVHBuildNode *bvh_build(vector<NetPolygon> &sorted, vector<MortonInfo> &minfo, int start, int end, int bit, int *node_count);
 
-	int flatten_tree(BVHBuildNode *node, int *offset);
+        int flatten_tree(BVHBuildNode *node, int *offset);
 
         void search_recursive(vector<int> &hits, Point query, int node_idx);
 
         double minx, miny, xrange, yrange;
         vector<Point> points;
-	vector<NetPolygon> polygons;
+	    vector<NetPolygon> polygons;
         vector<BVHSearchNode> s_nodes;
-	Bounds2D bounds;
+	    Bounds2D bounds;
 };
 
 #endif

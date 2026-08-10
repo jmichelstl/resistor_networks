@@ -73,21 +73,21 @@ bool read_resistors(ifstream &datfile, vector<Point>& point_list, map<int, vecto
     //First, try to read a header specifying the number of vertices and edges
     if(! datfile.eof()){
         getline(datfile, nextline);
-	if(sscanf(nextline.c_str(), "%d %d", &num_pts, &num_edges) < 2){
+	    if(sscanf(nextline.c_str(), "%d %d", &num_pts, &num_edges) < 2){
             cerr << "Error: could not read a valid header.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+	        return false;
         }
-	if(num_pts <= 0 || num_edges <= 0){
+	    if(num_pts <= 0 || num_edges <= 0){
             cerr << "Error: an invalid header was encountered.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+	        return false;
         }
     }
     else{
         cerr << "The network description file was empty.\n";
-	datfile.close();
-	return false;
+	    datfile.close();
+	    return false;
     }
 
     //Next, attempt to read the vertices of the graph
@@ -96,21 +96,21 @@ bool read_resistors(ifstream &datfile, vector<Point>& point_list, map<int, vecto
 
         if(sscanf(nextline.c_str(), "%lf %lf", &x, &y) < 2){
             cerr << "An valid point could not be read.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+	         return false;
         }
 
-	if(y < ymin) ymin = y;
+	    if(y < ymin) ymin = y;
         if(y > ymax) ymax = y;
 
         point_list.push_back(Point(x, y));
-	resistor_map.insert(make_pair(resistor_map.size(), vector<RPair>()));
+	    resistor_map.insert(make_pair(resistor_map.size(), vector<RPair>()));
     }
 
     if(resistor_map.size() < num_pts){
         cerr << "Too few points were read.\n";
-	datfile.close();
-	return false;
+	    datfile.close();
+	    return false;
     }
 
     //Finally, attempt to read the edges
@@ -119,25 +119,26 @@ bool read_resistors(ifstream &datfile, vector<Point>& point_list, map<int, vecto
         getline(datfile, nextline);
         if(sscanf(nextline.c_str(), "%d %d", &index1, &index2) < 2){
             cerr << "A pair of indices could not be read.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+	        return false;
         }
-	else if(! in_range(index1, num_pts) || ! in_range(index2, num_pts)){
+
+   	    else if(! in_range(index1, num_pts) || ! in_range(index2, num_pts)){
             cerr << "An out-of-bounds index was discovered.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+	        return false;
         }
 
         //If two valid indices have been found, add a resistor
         resistor_map[min(index1, index2)].push_back(RPair(max(index1, index2)));
-	edge_count ++;
+	    edge_count ++;
     }
 
     datfile.close();
 
     if(edge_count < num_edges){
         cerr << "Too few edges were read.\n";
-	return false;
+	    return false;
     }
 
     return true;
@@ -356,7 +357,7 @@ void resistance_run(ifstream &datfile, const char *report_name){
     //the specified file
     if(! read_resistors(datfile, point_list, resistor_map, ymin, ymax)){
         cerr << "Reading of the resistor network failed.\n";
-	return;
+	    return;
     }
     point_count = point_list.size();
 
@@ -419,9 +420,6 @@ void resistance_run(ifstream &datfile, const char *report_name){
             fclose(report);
         }
     }
-
-    //TODO: Optionally report the conductivity matrix to a file. I'm not sure
-    //I see the use in this option at the moment.
 
     //Clean house
     cholmod_free_sparse(&sparse_pfield, &common);

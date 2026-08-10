@@ -166,13 +166,14 @@ bool read_edges(ifstream &datfile, map<int, STLPoint> &imap, map<int, list<int>>
         getline(datfile, nextline);
         if(sscanf(nextline.c_str(), "%d %d", &num_pts, &num_edges) < 2){
             cerr << "No header could be read.\n";
-	    datfile.close();
-	    return false;
+            datfile.close();
+            return false;
         }
-	if(num_pts <= 0 || num_edges <= 0){
+
+        if(num_pts <= 0 || num_edges <= 0){
             cerr << "An invalid header was found.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+            return false;
         }
     }
 
@@ -182,8 +183,8 @@ bool read_edges(ifstream &datfile, map<int, STLPoint> &imap, map<int, list<int>>
 
         if(sscanf(nextline.c_str(), "%lf %lf", &x, &y) < 2){
             cout << "A valid point could not be read.\n";
-	    datfile.close();
-	    return false;
+            datfile.close();
+            return false;
         }
 
         imap.insert(make_pair(imap.size(), STLPoint(x, y)));
@@ -191,8 +192,8 @@ bool read_edges(ifstream &datfile, map<int, STLPoint> &imap, map<int, list<int>>
 
     if(imap.size() < num_pts){
         cerr << "Too few points were read.\n";
-	datfile.close();
-	return false;
+        datfile.close();
+        return false;
     }
 
     for(int idx = 0; idx < num_pts; idx++){
@@ -204,27 +205,27 @@ bool read_edges(ifstream &datfile, map<int, STLPoint> &imap, map<int, list<int>>
 
         if(sscanf(nextline.c_str(), "%d %d", &idx1, &idx2) < 2){
             cerr << "A valid edge could not be read.\n";
-	    datfile.close();
-	    return false;
+            datfile.close();
+            return false;
         }
 
-	if(! in_range(idx1, num_pts) || ! in_range(idx2, num_pts)){
+        if(! in_range(idx1, num_pts) || ! in_range(idx2, num_pts)){
             cerr << "An invalid index was encountered.\n";
-	    datfile.close();
-	    return false;
+	        datfile.close();
+	        return false;
         }
 
         emap[idx1].push_back(idx2);
         emap[idx2].push_back(idx1);
 
-	edge_count ++;
+        edge_count ++;
     }
 
     datfile.close();
 
     if(edge_count < num_edges){
         cerr << "Too few edges were read.\n";
-	return false;
+        return false;
     }
 
     return true;
@@ -833,7 +834,7 @@ int main(int argc, char **argv){
 
     if(! read_edges(datfile, imap, emap)){
         cerr << "Reading of the planar line graph failed.\n";
-	exit(2);
+        exit(2);
     }
 
     //Use maps to build cycles described by integer indices in cyclical order

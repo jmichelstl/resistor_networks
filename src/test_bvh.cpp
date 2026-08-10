@@ -77,14 +77,14 @@ int main(int argc, char **argv){
 
     for(Point p : all_queries){
         vector<int> membership = hnb->within(p);
-	if(membership.size() == 0){
+        if(membership.size() == 0){
             outside.push_back(p);
             continue;	    
-	}
-	if(membership[0] == 0){
+        }
+	    if(membership[0] == 0){
             hits1.push_back(p);
         }
-	else hits2.push_back(p);
+	    else hits2.push_back(p);
     }
 
     //Report membership results

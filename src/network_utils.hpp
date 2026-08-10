@@ -124,19 +124,19 @@ struct NetworkComplex {
 
     NetworkComplex(vector<Point> my_points, vector<Edge> my_edges){
         points = my_points;
-	edges = my_edges;
+        edges = my_edges;
     }
 
     void clear(){
         points.clear();
-	edges.clear();
+        edges.clear();
     }
 
     void assign(NetworkComplex other){
         points.clear();
-	edges.clear();
-	points.insert(points.begin(), other.points.begin(), other.points.end());
-	edges.insert(edges.begin(), other.edges.begin(), other.edges.end());
+        edges.clear();
+        points.insert(points.begin(), other.points.begin(), other.points.end());
+        edges.insert(edges.begin(), other.edges.begin(), other.edges.end());
     }
 };
 
@@ -152,21 +152,21 @@ struct NetPolygon {
 
     NetPolygon(vector<Point> points, vector<int> my_verts, int my_idx){
         left = INF;
-	right = -INF;
-	low = INF;
-	high = -INF;
-	vertices = my_verts;
-	index = my_idx;
+        right = -INF;
+        low = INF;
+        high = -INF;
+        vertices = my_verts;
+        index = my_idx;
         double x, y;
 
-	for(int v : vertices){
+        for(int v : vertices){
             x = points[v].x;
             y = points[v].y;
 
             left = x < left ? x : left;
-	    right = x > right ? x : right;
-	    low = y < low ? y : low;
-	    high = y > high ? y : high;
+            right = x > right ? x : right;
+            low = y < low ? y : low;
+            high = y > high ? y : high;
         }
     }
 
@@ -189,8 +189,8 @@ struct PolygonComplex {
 
     void clear(){
         points.clear();
-	edges.clear();
-	polygons.clear();
+        edges.clear();
+        polygons.clear();
     }
 };
 
