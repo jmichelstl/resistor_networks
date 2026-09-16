@@ -1753,10 +1753,11 @@ void prepare_grips_simple(NetworkComplex &nc){
 
     sort(edges.begin(), edges.end(), top_sort(nc.points));
     maxy = max(nc.points[(*edges.rbegin()).idx1].y, nc.points[(*edges.rbegin()).idx2].y);
+
     for(auto eiter = edges.rbegin(); eiter != edges.rend(); eiter ++){
         y1 = nc.points[(*eiter).idx1].y;
         y2 = nc.points[(*eiter).idx2].y;
-        if(min(y1, y2) < maxy) break;
+        if(max(y1, y2) < maxy) break;
         high_edges.insert(*eiter);
         if(y1 == maxy) high_points.insert(nc.points[(*eiter).idx1]); 
         if(y2 == maxy) high_points.insert(nc.points[(*eiter).idx2]); 

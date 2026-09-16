@@ -311,7 +311,7 @@ string poly_path(vector<Point> poly, double minx, double maxy){
         pstream << " L " << xpos << " " << ypos;
     }
 
-    pstream << " z\" fill=\"none\" stroke=\"red\" stroke-width=\".02\"/>";
+    pstream << " z\" fill=\"none\" stroke=\"red\" stroke-width=\".005\"/>";
 
     return pstream.str();
 }
@@ -355,14 +355,14 @@ string get_border_path(vector<Point> bpoints, double minx, double miny, double m
     index = 0;
     for(Point bp : bpoints){
         if(abs(bp.y - miny) < FLOAT_TOL){
-            cout << "bp.x: " << bp.x << "\n";
+            //cout << "bp.x: " << bp.x << "\n";
             if(bp.x < bottom_minx){
                 bottom_minx = bp.x;
                 bottom_l = index;
             }
             if(bp.x > bottom_maxx){
                 bottom_maxx = bp.x;
-                cout << "Now it's " << bottom_maxx << "\n";
+                //cout << "Now it's " << bottom_maxx << "\n";
                 bottom_r = index;
             }
         }
@@ -380,7 +380,7 @@ string get_border_path(vector<Point> bpoints, double minx, double miny, double m
         index ++;
     }
 
-    cout << "Maxx: " << bottom_maxx << " Minx: " << bottom_minx << "\n";
+    //cout << "Maxx: " << bottom_maxx << " Minx: " << bottom_minx << "\n";
     bwidth = bottom_maxx - bottom_minx + 2*(crad + tap_w);
     twidth = top_maxx - top_minx + 2*(crad + tap_w);
     minx = minx - PAD - crad - tap_w;
@@ -451,7 +451,7 @@ string get_border_path(vector<Point> bpoints, double minx, double miny, double m
         bstream << arc_string(tap_w, tap_h, CCW, tap_w, -tap_h);
     }
 
-    bstream << "\" fill=\"none\" stroke=\"blue\" stroke-width=\".02\"/>";
+    bstream << "\" fill=\"none\" stroke=\"blue\" stroke-width=\".005\"/>";
 
     return bstream.str();
 }
