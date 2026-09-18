@@ -11,31 +11,34 @@ all:
 	make svgwrite
 	make stlwrite
 	make rsolve
-	mape wpf
 
-predicates.a:
-	gcc -c src/predicates.c -o predicates.a
+lib/libpredicates.a:
+	mkdir -p lib
+	gcc -c src/predicates.c -o lib/libpredicates.a
 
-netutils.a:
-	$(CC) $(FLAGS) -c src/network_utils.cpp -o netutils.a
+lib/libnetutils.a:
+	mkdir -p lib
+	$(CC) $(FLAGS) -c src/network_utils.cpp -o lib/libnetutils.a
 
-hnetbvh.a:
-	$(CC) $(FLAGS) -c src/hnet_bvh.cpp -o hnetbvh.a
+lib/libhnetbvh.a:
+	mkdir -p lib
+	$(CC) $(FLAGS) -c src/hnet_bvh.cpp -o lib/libhnetbvh.a
 
-hnet_maker: predicates.a netutils.a hnetbvh.a
-	$(CC) $(FLAGS) predicates.a netutils.a hnetbvh.a src/create_hierarchical_network.cpp -o hnet_maker -pthread
+hnet_maker: lib/libpredicates.a lib/libnetutils.a lib/libhnetbvh.a
+	$(CC) $(FLAGS) src/create_hierarchical_network.cpp -o hnet_maker -pthread -L./lib -lpredicates -lnetutils -lhnetbvh
 
-svgwrite: predicates.a netutils.a
-	$(CC) $(FLAGS) predicates.a netutils.a src/write_svg.cpp -o svgwrite
+svgwrite: lib/libpredicates.a lib/libnetutils.a
+	$(CC) $(FLAGS) src/write_svg.cpp -o svgwrite -L./lib -lpredicates -lnetutils
 
-src/triangle.o:
-	gcc -O -DLINUX -I/usr/X11R6/include -L/usr/X11R6/lib -DTRILIBRARY -c -o src/triangle.o src/triangle.c
+lib/triangle.o:
+	mkdir -p lib
+	gcc -O -DLINUX -I/usr/X11R6/include -L/usr/X11R6/lib -DTRILIBRARY -c -o lib/triangle.o src/triangle.c
 
-stlwrite: src/triangle.o
-	$(CC) $(FLAGS) src/triangle.o src/write_stl.cpp -o stlwrite -lm
+stlwrite: lib/triangle.o
+	$(CC) $(FLAGS) lib/triangle.o src/write_stl.cpp -o stlwrite -lm
 
-rsolve: predicates.a netutils.a
-	$(CC) $(FLAGS) $(CUDA_INC) predicates.a netutils.a src/rsolve.cpp -o rsolve $(CHOLMOD_LINK)
+rsolve: lib/libpredicates.a lib/libnetutils.a
+	$(CC) $(FLAGS) $(CUDA_INC) src/rsolve.cpp -o rsolve $(CHOLMOD_LINK) -L./lib -lpredicates -lnetutils
 
 hnclean:
 	rm hnet_maker
@@ -50,20 +53,20 @@ rsclean:
 	rm rsolve
 
 bvhclean:
-	rm hnetbvh.a
+	rm lib/libhnetbvh.a
 
 predclean:
-	rm predicates.a
+	rm lib/libpredicates.a
 
 netuclean:
-	rm netutils.a
+	rm lib/libnetutils.a
 
 clean:
 	rm hnet_maker
 	rm svgwrite
-	rm ./src/triangle.o
+	rm lib/triangle.o
 	rm stlwrite
 	rm rsolve
-	rm predicates.a
-	rm hnetbvh.a
-	rm netutils.a
+	rm lib/libpredicates.a
+	rm lib/libhnetbvh.a
+	rm lib/libnetutils.a
