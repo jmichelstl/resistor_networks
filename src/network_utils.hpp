@@ -133,10 +133,8 @@ struct NetworkComplex {
     }
 
     void assign(NetworkComplex other){
-        points.clear();
-        edges.clear();
-        points.insert(points.begin(), other.points.begin(), other.points.end());
-        edges.insert(edges.begin(), other.edges.begin(), other.edges.end());
+        points.assign(other.points.begin(), other.points.end());
+        edges.assign(other.edges.begin(), other.edges.end());
     }
 };
 

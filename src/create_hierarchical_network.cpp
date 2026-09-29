@@ -24,13 +24,14 @@ uses randomness but also guarantees that the network remains fully connected.
 #include <ctype.h>
 #include <float.h>
 #include <random>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
 #include <tuple>
 #include <time.h>
 #include <memory>
+#include "hnet_job.hpp"
 
 using namespace std;
+
+#define MAX_ATTEMPTS 10
 
 //Data type for storing ordered pairs of indices into lists of geometrical
 //objects
@@ -85,26 +86,18 @@ struct NetData{
     bool displace;
 };
 
-/*
- * I introduced this struct with the idea that I might use it to develop a
- * parallel version of the code for stitching together different large-scale
- * grains when making a diluted, hierarchical network.
- * TODO: Either implement parallel hierarhical network creation, or replace
- * this superfluous struct.
- */
-struct MST_JOB{
+//Struct to represent the data for constructing a lattice
+struct LatticeRecipe {
 
-    MST_JOB(vector<vector<Edge>> *arg1, int arg2, int arg3, int *arg4, vector<Edge> *arg5, vector<Edge> *arg6, vector<int> *arg7, unordered_map<Point, int> *arg8, int *arg9) : collection(arg1), begin(arg2), end(arg3), edge_count(arg4), pool(arg5), retain(arg6), mst_table(arg7), point_map(arg8), canonical_count(arg9){}
+    LatticeRecipe(){}
 
-    vector<vector<Edge>> *collection; 
-    int begin;
-    int end;
-    int *edge_count;
-    vector<Edge> *pool;
-    vector<Edge> *retain; 
-    vector<int> *mst_table;
-    unordered_map<Point, int> *point_map;
-    int *canonical_count;
+    LatticeRecipe(vector<vector<double>> my_rules,  map<int,vector<vector<double>>> my_nns){
+        rules = my_rules;;
+        nns = my_nns;
+    }
+
+    vector<vector<double>> rules;
+    map<int,vector<vector<double>>> nns;
 };
 
 //Utility function to create a random seed
@@ -168,6 +161,27 @@ void print_network(NetworkComplex nc, string message){
     fclose(out);
 }
 
+void print_network_automated(NetworkComplex nc, string name){    
+    FILE *out = NULL;
+
+    out = fopen(name.c_str(), "w");
+    if(out == NULL){
+        cerr << "The specified output file could not be opened.\n";
+        return;
+    }
+
+    for(Edge e : nc.edges){
+        if(e.idx1 >= nc.points.size() || e.idx2 >= nc.points.size()){
+            cerr << "Out of bounds edge: (" << e.idx1 << ", " << e.idx2 <<")\n";
+        }
+        Point p1 = nc.points[e.idx1];
+        Point p2 = nc.points[e.idx2];
+        fprintf(out, "%10.8lf %10.8lf \n%10.8lf %10.8lf \n\n", p1.x, p1.y, p2.x, p2.y);
+    }
+
+    fclose(out);
+}
+
 void print_network_compact(NetworkComplex nc, string message){ 
     string nextline, filename;
     FILE *out = NULL;
@@ -192,6 +206,28 @@ void print_network_compact(NetworkComplex nc, string message){
                 return;
             }
         }
+    }
+
+    fprintf(out, "%ld %ld\n", nc.points.size(), nc.edges.size());
+
+    for(Point p : nc.points){
+        fprintf(out, "%1.10lf\t%1.10lf\n", p.x, p.y);
+    }
+
+    for(Edge e : nc.edges){
+        fprintf(out, "%u\t%u\n", e.idx1, e.idx2);
+    }
+
+    fclose(out);
+}
+
+void print_network_compact_automated(NetworkComplex nc, string name){ 
+    FILE *out = NULL;
+
+    out = fopen(name.c_str(), "w");
+    if(out == NULL){
+        cerr << "The specified output file could not be opened.\n";
+        return;
     }
 
     fprintf(out, "%ld %ld\n", nc.points.size(), nc.edges.size());
@@ -541,7 +577,7 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
     Point p1, p2, key;
     Point p1f, p2f, p3f, p4f, p1fb, p2fb, p3fb, p4fb;
     double low, high, ang1, ang2, dx, dy, hwidth, slope;
-    double ymin = FLT_MAX, ymax = FLT_MIN, ylow, yhigh, y_ext;
+    double ymin = FLT_MAX, ymax = -FLT_MAX, ylow, yhigh, y_ext;
     bool p1fflag, p2fflag, p3fflag, p4fflag, p1_is_end, p2_is_end;
     vector<Point> replace_points;
     vector<Edge> replace_edges;
@@ -756,63 +792,6 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
     current.edges.insert(current.edges.begin(), replace_edges.begin(), replace_edges.end());
 }
 
-vector<vector<double>> getrules(){
-    vector<double> rule;
-    vector<vector<double>> rules;
-    bool newRule;
-
-    while(true){
-        newRule = yesno("Enter a new rule? ");
-        if(!newRule){
-            if(rules.size()){
-                break;
-            }
-            else{
-                fprintf(stderr, "Enter at least one rule.\n");
-            }
-        }
-        else{
-            rule = getdoubles("Enter rule: ");
-            if(rule.size() < 3){
-                fprintf(stderr, "Enter at least three numbers.\n");
-            }
-            else{
-                rules.push_back(rule);
-            }
-        }
-    }
-
-    return rules;
-}
-
-map<int,vector<vector<double>>> getnns(vector<vector<double>> rules){
-    map<int,vector<vector<double>>> nns;
-    vector<double> nn;
-    int ruleiter = 0, count = 0, pointiter;
-    string prompt, base;
-
-    base = "Add a nearest neighbor vector for rule ";
-
-    for(vector<double> nextrule : rules){
-       ruleiter ++;
-       for(pointiter = 1; pointiter <= nextrule.size() - 2; pointiter ++){
-           vector<vector<double>> nextset;
-           while(true){
-               prompt = base + to_string(ruleiter) + " point " + to_string(pointiter) + "?";
-               if(!yesno(prompt)) break;
-               nn = getdoubles("Enter the vector: ");
-               if(nn.size() != 2) fprintf(stderr, "Enter two numbers.\n");
-               else{
-                   nextset.push_back(nn);
-               }
-           }
-           nns.insert(pair<int, vector<vector<double>>>(count++, nextset));
-       }
-    }
-
-    return nns;
-}
-
 void scale_vector(vector<double>& in, double scale){
     int index;
     for(index = 0; index < in.size(); index++){
@@ -820,26 +799,20 @@ void scale_vector(vector<double>& in, double scale){
     }
 }
 
-bool import_lattice(vector<vector<double>>& rules, map<int,vector<vector<double>>>& nns, double scale){
+bool import_lattice(string name, vector<vector<double>>& rules, map<int,vector<vector<double>>>& nns, double scale){
     ifstream latfile;
-    string name, nextline;
+    string nextline;
     bool again, blank, fileopen = false;
     vector<double> rule, nn;
     int lcount = 0, pointiter, nncount = 0, ruleiter = 0;
 
-    //Prompt for file name
-    do{
-        printf("Enter the lattice file name: ");
-        getline(cin, nextline);
-        name = split(nextline, ' ')[0];
+    //Attempt to open lattice file
+    latfile.open(name);
 
-        if(!name.empty()) latfile.open(name);
-
-        if(!latfile.is_open()){
-            again = yesno("No file was read. Try again? ");
-            if(!again) return false;
-        }
-    }while(!latfile.is_open());
+    if(!latfile.is_open()){
+        cerr << "The specified file could not be read read\n";
+        return false;
+    }
 
     //Process rules until a blank line is reached
     blank = false;
@@ -883,21 +856,30 @@ bool import_lattice(vector<vector<double>>& rules, map<int,vector<vector<double>
 }
 
 void get_lattice_info(vector<vector<double>>& rules, map<int,vector<vector<double>>>& nns){
-    bool success;
+
+    bool success = false;
     double scale;
+    string nextline, name;
+    int file_name_attempts = 0, import_attempts = 0;
 
-    if(yesno("Read lattice data from file?")){
+    do{
+        scale = getdoubles("Enter the scale factor: ").at(0);
+        //Prompt for file name
         do{
-            scale = getdoubles("Enter the scale factor: ").at(0);
-            success = import_lattice(rules, nns, scale);
-            if(!success) if(!yesno("Read failed. Try again?")) break;
-        }while(!success);
-    }
+            printf("Enter the lattice file name: ");
+            getline(cin, nextline);
+            name = split(nextline, ' ')[0];
 
-    if(!success){
-        rules = getrules();
-        nns = getnns(rules);
-    }
+            if(!name.empty()) break;
+
+            if(! yesno("No file name was read. Try again? ")){
+                return;
+            }
+        }while(file_name_attempts++ < MAX_ATTEMPTS);
+
+        success = import_lattice(name, rules, nns, scale);
+        if(!success) if(!yesno("Read failed. Try again?")) break;
+    }while(!success && import_attempts < MAX_ATTEMPTS);
 }
 
 void loadNetStack(stack<NetData>& net_stack){
@@ -1605,7 +1587,7 @@ Point find_match(Point p1, Point p2, double y){
     else return p2;
 }
 
-void prepare_grips_displaced(NetworkComplex &nc, bool connect_top_bottom){
+void prepare_grips_displaced_interactive(NetworkComplex &nc, bool connect_top_bottom){
     double low, high, miny, maxy;
     vector<double> ycuts;
     bool valid, curr_defined;
@@ -1697,6 +1679,104 @@ void prepare_grips_displaced(NetworkComplex &nc, bool connect_top_bottom){
     nc = reduced_network(nc.points, replace);
 }
 
+void prepare_grips_displaced_automated(NetworkComplex &nc, bool connect_top_bottom, double low, double high){
+    double miny, maxy;
+    bool curr_defined;
+    set<Point> bps, tps;
+    Point p1, p2, new_point, curr, in_pt;
+    vector<Point> replace_points;
+    vector<Edge> replace_edges;
+    double intersect_x;
+    Edge next;
+    map<Point, unsigned int> pmap;
+
+    while(! nc.edges.empty()){
+        next = nc.edges.front();
+        p1 = nc.points[next.idx1];
+        p2 = nc.points[next.idx2];
+        nc.edges.erase(nc.edges.begin());
+        miny = p1.y < p2.y ? p1.y : p2.y;
+        maxy = p1.y > p2.y ? p1.y : p2.y;
+        if(miny >= low && maxy <= high){
+            if(pmap.find(p1) == pmap.end()){
+                replace_points.push_back(p1);
+                pmap.insert(make_pair(p1, pmap.size()));
+            }
+            if(pmap.find(p2) == pmap.end()){
+                replace_points.push_back(p2);
+                pmap.insert(make_pair(p2, pmap.size()));
+            }
+            replace_edges.push_back(Edge(pmap[p1], pmap[p2]));
+            if(connect_top_bottom){
+                if(miny == low) bps.insert(find_match(p1, p2, low));
+                if(maxy == high) tps.insert(find_match(p1, p2, high));
+            }
+        }
+
+        else if(miny < low && maxy >= low){
+            intersect_x = x_intersect(nc.points, next, low);
+            new_point = Point(intersect_x, low);
+            if(pmap.find(new_point) == pmap.end()){
+                pmap.insert(make_pair(new_point, pmap.size()));
+                replace_points.push_back(new_point);
+            }
+            in_pt = find_match(p1, p2, maxy);
+            if(pmap.find(in_pt) == pmap.end()){
+                pmap.insert(make_pair(in_pt, pmap.size()));
+                replace_points.push_back(in_pt);
+            }
+            
+            replace_edges.push_back(Edge(pmap[new_point], pmap[in_pt]));
+            if(connect_top_bottom) bps.insert(new_point);
+        }
+        
+        else if(miny <= high && maxy > high){
+            intersect_x = x_intersect(nc.points, next, high);
+            new_point = Point(intersect_x, high);
+            if(pmap.find(new_point) == pmap.end()){
+                pmap.insert(make_pair(new_point, pmap.size()));
+                replace_points.push_back(new_point);
+            }
+            in_pt = find_match(p1, p2, miny);
+            if(pmap.find(in_pt) == pmap.end()){
+                pmap.insert(make_pair(in_pt, pmap.size()));
+                replace_points.push_back(in_pt);
+            }
+            replace_edges.push_back(Edge(pmap[in_pt],pmap[new_point]));
+            if(connect_top_bottom) tps.insert(new_point);
+        }
+    }
+
+    if(connect_top_bottom){
+        curr_defined = false;
+        for(Point next : bps){
+            if(! curr_defined){
+                curr = next;
+                curr_defined = true;
+            }
+            else{
+                replace_edges.push_back(Edge(pmap[curr], pmap[next]));
+                curr = next;
+            }
+        }
+
+        curr_defined = false;
+        for(Point next : tps){
+            if(! curr_defined){
+                curr = next;
+                curr_defined = true;
+            }
+            else{
+                replace_edges.push_back(Edge(pmap[curr], pmap[next]));
+                curr = next;
+            }
+        }
+    }
+
+    nc.points.assign(replace_points.begin(), replace_points.end());
+    nc.edges.assign(replace_edges.begin(), replace_edges.end());
+}
+
 //Struct to sort edges by the lowest point
 struct bottom_sort {
 
@@ -1780,9 +1860,11 @@ void prepare_grips_simple(NetworkComplex &nc){
     }
 }
 
-void prepare_grips(NetworkComplex &nc, bool displaced, bool connect){
+void prepare_grips(NetworkComplex &nc, bool displaced){
     if(! displaced) prepare_grips_simple(nc);
-    else prepare_grips_displaced(nc, connect);
+    else {
+        prepare_grips_displaced_interactive(nc, yesno("Connect the top and bottom? "));
+    }
 }
 
 void adjust_bounds(vector<double> &bounds, vector<vector<double>> rules, vector<Point> points){
@@ -1806,7 +1888,7 @@ void adjust_bounds(vector<double> &bounds, vector<vector<double>> rules, vector<
     }
 }
 
-NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign, bool connect, bool verbose){
+NetworkComplex edge_hierarchy_interactive(vector<double> bounds, int polyflag, bool getAlign, bool connect, bool verbose){
     stack<NetData> net_stack;
     vector<vector<Edge>> edge_collection;
     NetworkComplex top, bottom, backup;
@@ -1839,14 +1921,14 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
 
     if(tdat.width > 0){
         if(tdat.displace || getAlign){
-            backup.points.insert(backup.points.begin(), top.points.begin(), top.points.end());
-            backup.edges.insert(backup.edges.begin(), top.edges.begin(), top.edges.end());
+            backup.points.assign(top.points.begin(), top.points.end());
+            backup.edges.assign(top.edges.begin(), top.edges.end());
         }
         add_thickness(top, tdat.width, pc, net_stack.size() > 0 || polyflag, !tdat.displace);
     }
 
     if(net_stack.empty() && yesno("Prepare for grips?")){
-        prepare_grips(top, displacement, connect);
+        prepare_grips(top, displacement);
     }
 
     if(polyflag == 1){
@@ -1901,10 +1983,7 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
 
         if(net_stack.empty()){
             if(yesno("Prepare for grips?")){
-                double xlow, ylow, xhigh, yhigh;
-                get_extremes(bottom.points, xlow, ylow, xhigh, yhigh);
-                prepare_grips(bottom, displacement, connect);
-                get_extremes(bottom.points, xlow, ylow, xhigh, yhigh);
+                prepare_grips(bottom, displacement);
             }
 
             if(getAlign){
@@ -1929,8 +2008,8 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
             pc.clear();
             if(!net_stack.empty() && (displace || getAlign)){
                 backup.clear();
-                backup.points.insert(backup.points.begin(), top.points.begin(), top.points.end());
-                backup.edges.insert(backup.edges.begin(), top.edges.begin(), top.edges.end());
+                backup.points.assign(top.points.begin(), top.points.end());
+                backup.edges.assign(top.edges.begin(), top.edges.end());
             }
             add_thickness(bottom, bdat.width, pc, net_stack.size() > 0, !bdat.displace);
         }
@@ -1942,48 +2021,11 @@ NetworkComplex edge_hierarchy(vector<double> bounds, int polyflag, bool getAlign
     return top;
 }
 
-int main(int argc, char **argv){
-    vector<vector<double>> rules;
-    map<int,vector<vector<double>>> nns;
-    vector<double> rule, bounds, nn;
+void create_network_interactive(bool align, bool connect, bool compact, char polyflag){
+
+    vector<double> bounds;
     NetworkComplex nc;
-    string nextline;
-    int ruleiter, pointiter, count;
-    string filename;
-    FILE *out;
-    double width;
-    bool flag, success = false, align = false, connect = true, compact = true;
-    int c, polyflag = 0;
 
-    opterr = 0;
-
-    while((c = getopt(argc, argv, "adpv")) != -1){
-        switch(c) {
-            case 'a':
-                align = true;
-                break;
-            case 'd':
-                connect = false;
-                break;
-            case 'p':
-                polyflag = 1;
-                break;
-            case 'v':
-                compact = false;
-                break;
-            case '?':
-                if(isprint(optopt)){
-                    fprintf(stderr, "Unknown option: -%c.\n", optopt);
-                }
-                else{
-                    fprintf(stderr, "Unknown option character.\n");
-                }
-            default:
-                break;
-         }
-    }
-
-    //Read in network bounds
     while(true){
         bounds = getdoubles("Enter bottom left and top right bounds: ");
         if(bounds.size() == 4){
@@ -1997,13 +2039,210 @@ int main(int argc, char **argv){
         }
     }
 
-    nc = edge_hierarchy(bounds, polyflag, align, connect, !compact);
+    nc = edge_hierarchy_interactive(bounds, polyflag, align, connect, !compact);
 
     if(! compact){
         print_network(nc, "Enter a file name for output: ");
     }
     else{
         print_network_compact(nc, "Enter a file name for output: ");
+    }
+}
+
+NetworkComplex edge_hierarchy_automated(HNTask task, vector<LatticeRecipe> recipes, bool verbose){
+    vector<vector<Edge>> edge_collection;
+    NetworkComplex top, bottom, backup;
+    PolygonComplex pc;
+    int iter, idx;
+    double length, alignment;
+    FILE *align_report, *poly_report;
+    bool displaced = false;
+    vector<double> bounds({task.minx, task.miny, task.maxx, task.maxy});
+
+    HNLayer tlayer = task.layers[0];
+    length = get_min_dist(recipes[0].nns);
+    makeedges(recipes[0].rules, recipes[0].nns, bounds, top);
+
+    if(tlayer.bond_occupation < 1){
+        if(task.connected) top = random_connected(top, tlayer.bond_occupation);
+        else true_random(top, tlayer.bond_occupation);
+    }
+
+    if(tlayer.displacement > 0){
+        displace_points_grn(top, tlayer.displacement);
+        displaced = true;
+    }
+
+    if(task.skeleton_file.compare("") != 0){
+        print_network_automated(top, task.skeleton_file);
+    }
+
+    if(tlayer.width > 0){
+        if(tlayer.displacement > 0 || task.alignment_file.compare("") != 0){
+            backup.points.insert(backup.points.begin(), top.points.begin(), top.points.end());
+            backup.edges.insert(backup.edges.begin(), top.edges.begin(), top.edges.end());
+        }
+        add_thickness(top, tlayer.width, pc, task.layers.size() > 1 || task.poly_file.compare("") != 0, !(tlayer.displacement > 0));
+    }
+
+    if(task.layers.size() == 1 && task.add_grips){
+        if(task.displaced) {
+            prepare_grips_displaced_automated(top, task.connect_top_bottom, task.grip_lower, task.grip_upper);
+        }
+        else prepare_grips_simple(top);
+    }
+
+    if(task.poly_file.compare("") != 0){
+
+        poly_report = fopen(task.poly_file.c_str(), "w");
+
+        if(poly_report != NULL){
+            if(verbose) print_polygons_verbose(poly_report, pc);
+            else print_polygons_concise(poly_report, pc);
+        }
+        else cerr << "The polygon file could not be opened.\n";
+    }
+
+    if(task.top_file.compare("") != 0){
+        print_network_automated(top, task.top_file);
+    }
+
+    for(iter = 1; iter < task.layers.size(); iter ++){
+        HNLayer blayer = task.layers[iter];
+
+        adjust_bounds(bounds, recipes[iter].rules, top.points);
+        if(displaced && blayer.grain_based){
+            make_edges_deformed(recipes[iter].rules, recipes[iter].nns, backup, pc, tlayer.width, blayer.bond_occupation, blayer.stitch_cutoff*blayer.stitch_cutoff, bottom);
+        }
+        else{
+            makeedges(recipes[iter].rules, recipes[iter].nns, bounds, bottom);
+            bottom = sieve_edges(top, length, bottom,pc,blayer.bond_occupation);
+        }
+
+        if(blayer.displacement > 0){
+            displace_points_grn(bottom, blayer.displacement);
+            displaced = true;
+        }
+
+        if(iter == task.layers.size() - 1){
+            if(task.add_grips){
+                if(task.displaced) {
+                    prepare_grips_displaced_automated(bottom, task.connect_top_bottom, task.grip_lower, task.grip_upper);
+                }
+                else prepare_grips_simple(bottom);
+            }
+
+            if(task.alignment_file.compare("") != 0){
+
+                align_report = fopen(task.alignment_file.c_str(), "w");
+
+                if(align_report != NULL){
+                    sort_edges(length, bottom, pc, edge_collection);
+
+                    for(idx = 0; idx < edge_collection.size(); idx++){
+                        alignment  = calc_alignment(bottom.points, edge_collection[idx], backup.points, backup.edges[idx]);
+                        fprintf(align_report, "%lf\t%ld\n", alignment, edge_collection[idx].size());
+                    }
+                    fclose(align_report);
+                }
+            }
+        }
+
+        if(blayer.width > 0){
+            pc.clear();
+            if(iter < task.layers.size() - 1 && (task.displaced || task.alignment_file.compare("") != 0)){
+                backup.clear();
+                backup.points.insert(backup.points.begin(), top.points.begin(), top.points.end());
+                backup.edges.insert(backup.edges.begin(), top.edges.begin(), top.edges.end());
+            }
+            add_thickness(bottom, blayer.width, pc, iter < task.layers.size()-1, blayer.displacement == 0);
+        }
+
+        top.assign(bottom);
+        length = get_min_dist(recipes[iter].nns);
+        tlayer = blayer;
+    }
+
+    return top;
+}
+
+void create_networks_automated(HNJob job, bool compact){
+
+    vector<LatticeRecipe> recipes;
+
+    //Find instructions for creating points and edges for each layer
+    for(int iter = 0; iter < job.lattice_files.size(); iter ++){
+        LatticeRecipe r;
+        if(! import_lattice(job.lattice_files[iter], r.rules, r.nns, job.scales[iter])){
+            cerr << "Importation of lattice instructions failed.\n";
+            return;
+        }
+        recipes.emplace(recipes.begin(), r);
+    }
+
+    //Build each realization for each combination of bond portions
+    for(HNTask next_task : job.tasks){
+        NetworkComplex nc = edge_hierarchy_automated(next_task, recipes, !compact);
+        if(! compact){
+            print_network_automated(nc, next_task.output_file);
+        }
+        else{
+            print_network_compact_automated(nc, next_task.output_file);
+        }
+    }
+}
+
+int main(int argc, char **argv){
+    bool align = false, connect = true, compact = true, interactive = true;
+    int c, polyflag = 0;
+    string job_file_name;
+
+    opterr = 0;
+
+    while((c = getopt(argc, argv, "adj:pv")) != -1){
+        switch(c) {
+            case 'a':
+                align = true;
+                break;
+            case 'd':
+                connect = false;
+                break;
+            case 'j':
+                interactive = false;
+                job_file_name.assign(string(optarg));
+                break;
+            case 'p':
+                polyflag = 1;
+                break;
+            case 'v':
+                compact = false;
+                break;
+            case '?':
+                if(optopt == 'j'){
+                    cerr << "Option \"j\" requires a job file name.\n";
+                }
+                else if(isprint(optopt)){
+                    fprintf(stderr, "Unknown option: -%c.\n", optopt);
+                }
+                else{
+                    fprintf(stderr, "Unknown option character.\n");
+                }
+            default:
+                break;
+         }
+    }
+
+    if(interactive) {
+        create_network_interactive(align, connect, compact, polyflag);
+    }
+
+    else {
+        HNJob job;
+        if(! parse_hnet_job(job_file_name, job)){
+            cerr << "The specified job file could not be parsed.\n";
+            return -1;
+        }
+        create_networks_automated(job, compact);
     }
 
     return 0;

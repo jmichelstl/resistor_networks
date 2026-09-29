@@ -32,7 +32,7 @@ svgwrite: lib/libpredicates.a lib/libnetutils.a
 
 lib/triangle.o:
 	mkdir -p lib
-	gcc -O -DLINUX -I/usr/X11R6/include -L/usr/X11R6/lib -DTRILIBRARY -c -o lib/triangle.o src/triangle.c
+	gcc -O -DLINUX -I/usr/X11R6/include -L/usr/X11R6/lib -DTRILIBRARY -DANSI_DECLARATORS -c -o lib/triangle.o src/triangle.c
 
 stlwrite: lib/triangle.o
 	$(CC) $(FLAGS) lib/triangle.o src/write_stl.cpp -o stlwrite -lm
@@ -64,9 +64,6 @@ netuclean:
 clean:
 	rm hnet_maker
 	rm svgwrite
-	rm lib/triangle.o
+	rm lib/*
 	rm stlwrite
 	rm rsolve
-	rm lib/libpredicates.a
-	rm lib/libhnetbvh.a
-	rm lib/libnetutils.a

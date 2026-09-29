@@ -249,9 +249,9 @@ void rotate_point(Point &point, double angle, Point pivot){
 void get_extremes(vector<Point> points, double &minx, double &miny, double &maxx, double &maxy){
 
     minx = FLT_MAX;
-    maxx = FLT_MIN;
+    maxx = -FLT_MAX;
     miny = FLT_MAX;
-    maxy = FLT_MIN;
+    maxy = -FLT_MAX;
 
     for(Point p : points){
         if(p.x < minx) minx = p.x;
