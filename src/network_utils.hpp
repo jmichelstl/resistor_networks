@@ -11,6 +11,7 @@
 #include <cfloat>
 #include <unordered_map>
 #include <cstdint>
+#include <random>
 
 using namespace std;
 
@@ -248,4 +249,36 @@ double y_intersect(vector<Point> points, Edge e, double xval);
 //Compute the squared distance between two points
 double distance_sq(Point p1, Point p2);
 
+//Utility function to generate a random seed
+unsigned get_random_seed();
+
+//Means of importing rules to create a lattice-based network
+bool import_lattice(string name, vector<vector<double>>& rules, map<int,vector<vector<double>>>& nns, double scale);
+
+//Given a set of points and edges connecting those points, partition edges into
+//two subsets: a random set forming a minimum spanning tree, and all others.
+void randomMST(NetworkComplex nc, vector<Edge> &keep, vector<Edge>& rejects);
+
+/*
+This function adds Gaussian random noise to the location of each point.
+The function takes as arguments the original set of points and edges describing
+the network, and a standard deviation for Gaussian random noise. Points are 
+shifted according to a normal distribution.
+*/
+void displace_points_grn(NetworkComplex &nc, double sdev);
+
+//Given a set of rules for the geometry and topology of a lattice-based network,
+//construct the network row-by-row.
+void makeedges(vector<vector<double>> rules, map<int,vector<vector<double>>> nns, vector<double> bnds, NetworkComplex &nc);
+
+template <typename T>
+void add_if_missing(const T &t, map<T, int> &idx_map, vector<T> &list);
+
+void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc, bool makepoly, bool level);
+
+NetworkComplex random_connected(NetworkComplex in, double to_keep);
+
+//After edges have been removed from a network, cull unused points and reassign
+//edge endpoint indices
+void reassign_points_edges(NetworkComplex &nc, vector<Edge> kept_edges);
 #endif

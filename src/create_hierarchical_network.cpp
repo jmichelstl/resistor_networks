@@ -1,8 +1,10 @@
-/*Author: Jonathan MichenyThis program prompts a user for boundaries and rules for producing lattice
-sites and nearest neighbor connections. From here, a set of line segments
-joining nearest neighbor locations is produced. Connections can be removed
-from the network in two ways; one method is completely random, while the other
-uses randomness but also guarantees that the network remains fully connected.
+/*
+ * Author: Jonathan MichenyThis program prompts a user for boundaries and rules
+ * for producing lattice sites and nearest neighbor connections. From here, a
+ * set of line segments joining nearest neighbor locations is produced.
+ * Connections can be removed from the network in two ways; one method is
+ * completely random, while the other uses randomness but also guarantees that
+ * the network remains fully connected.
 */
 
 #include <stdlib.h>
@@ -25,7 +27,6 @@ uses randomness but also guarantees that the network remains fully connected.
 #include <float.h>
 #include <random>
 #include <tuple>
-#include <time.h>
 #include <memory>
 #include "hnet_job.hpp"
 
@@ -39,7 +40,7 @@ struct IdxPair{
 
     IdxPair(int arg1, int arg2){
         idx1 = min(arg1, arg2);
-	idx2 = max(arg1, arg2);
+        idx2 = max(arg1, arg2);
     }
 
     int idx1, idx2;
@@ -100,28 +101,6 @@ struct LatticeRecipe {
     map<int,vector<vector<double>>> nns;
 };
 
-//Utility function to create a random seed
-unsigned get_random_seed(){
-
-    unsigned seed;
-    FILE *ranfile;
-    int num_read = 0;
-    time_t the_time;
-
-    ranfile = fopen("/dev/urandom", "r");
-    if(ranfile != NULL){
-        num_read = fread(&seed, sizeof(unsigned), 1, ranfile);
-        fclose(ranfile);
-    }
-
-    if(num_read > 0){
-        return seed;
-    }
-
-    time(&the_time);
-    return (unsigned int) the_time;
-}
-
 void print_network(NetworkComplex nc, string message){    
     string nextline, filename;
     FILE *out = NULL;
@@ -143,10 +122,10 @@ void print_network(NetworkComplex nc, string message){
         }
 
         else{
-	        if(! yesno("No file name was read. Try again?")){
+            if(! yesno("No file name was read. Try again?")){
                 return;
             }
-	    }
+        }
     }
 
     for(Edge e : nc.edges){
@@ -196,13 +175,13 @@ void print_network_compact(NetworkComplex nc, string message){
             out = fopen(filename.c_str(), "w");
             if(out == NULL){
                 if(! yesno("The file could not be opened. Try again?")){
-		            return;
-		        }
+                    return;
+                }
             }
         }
 
         else{
-	        if(! yesno("No file name was read. Try again?")){
+            if(! yesno("No file name was read. Try again?")){
                 return;
             }
         }
@@ -271,67 +250,6 @@ void print_polygons_concise(FILE *poly_report, PolygonComplex pc){
     }
 
     fclose(poly_report);
-}
-
-void makeedges(vector<vector<double>> rules, map<int,vector<vector<double>>> nns, vector<double> bnds, NetworkComplex &nc){
-    double x, y, x2, y2;
-    int ruleiter = 0, rulesize, xiter, base = 0, index, numrules = 0;
-    vector<double> rule;
-    Point p1, p2;
-    map<Point, unsigned int> pmap;
-    map<Point, unsigned int>::iterator piter;
-
-    nc.clear();
-
-    for(vector<double> vec : rules){
-        numrules += vec.size() - 2;
-    }
-
-    y = bnds[1];
-    while(y <= bnds[3]){
-        xiter = 0;
-        rule = rules[ruleiter%rules.size()];
-        rulesize = rule.size() - 2;
-        x = rule[0] + bnds[0];
-
-        while(x <= bnds[2]){
-           p1 = Point(x,y);
-           piter = pmap.find(p1);
-           if(piter != pmap.end()){
-               p1.x = piter->first.x;
-               p1.y = piter->first.y;
-           }
-           else{
-               pmap.insert(make_pair(p1, pmap.size()));
-               nc.points.push_back(p1);
-           }
-
-           index = base + xiter % rulesize;
-           for(vector<double> nextnn : nns[index]){
-               x2 = x + nextnn[0];
-               y2 = y + nextnn[1];
-               if(x2>=bnds[0] && x2<=bnds[2] && y2>=bnds[1] && y2<=bnds[3]){
-                   
-                   p2 = Point(x2, y2);
-                   piter = pmap.find(p2);
-                   if(piter != pmap.end()){
-                       p2.x = piter->first.x;
-                       p2.y = piter->first.y;
-                   }
-                   else{
-                       pmap.insert(make_pair(p2, pmap.size()));
-		       nc.points.push_back(p2);
-                   }
-
-                   nc.edges.push_back(Edge(pmap[p1], pmap[p2]));
-               }
-           }
-           x += rule[xiter++%rulesize + 2];
-        }
-        y += rule[1];
-        base = (base + rulesize) % numrules;
-        ruleiter++;
-    }
 }
 
 double get_v_offset(vector<vector<double>> rules){
@@ -456,36 +374,6 @@ set<Edge> top_bottom(NetworkComplex nc){
     return topbottom;
 }
 
-//After edges have been removed from a network, cull unused points and reassign
-//edge endpoint indices
-void reassign_points_edges(NetworkComplex &nc, vector<Edge> kept_edges){
-
-    set<int> kept_indices;
-    map<int, int> reassignments;
-    vector<Point> kept_points;
-
-    //Figure out which points are retained
-    for(Edge e : kept_edges){
-        kept_indices.insert(e.idx1);
-        kept_indices.insert(e.idx2);
-    }
-
-    //Make a map from indices of retained points to their new indices
-    for(int point : kept_indices){
-        reassignments.insert(make_pair(point, reassignments.size()));
-        kept_points.push_back(nc.points[point]);
-    }   
-
-    //Reassign edges' endpoint indices based on updated point indices
-    for(int idx = 0; idx < kept_edges.size(); idx++){
-        kept_edges[idx].idx1 = reassignments[kept_edges[idx].idx1];
-        kept_edges[idx].idx2 = reassignments[kept_edges[idx].idx2];
-    }
-
-    nc.points = kept_points;
-    nc.edges = kept_edges;
-}
-
 void true_random(NetworkComplex &nc, double to_keep){
     int num_needed, index;
     vector<Edge> kept;
@@ -527,333 +415,6 @@ void true_random(NetworkComplex &nc, double to_keep){
     results.erase(results.begin(), results.begin() + max_zero + 1);
     return results;
 }*/
-
-void getangles(vector<double> angvec, double angle, double &low, double &high){
-    int index = 0, size = angvec.size();
-
-    while(index < size-1 && angle-angvec[index] > FLOAT_TOL) index++;
-    
-    low = angvec[(index+size-1)%size];
-    high = angvec[(index+size+1)%size];
-}
-
-void changes(double low, double high, double hwidth, double &dx, double &dy){
-
-    double diff = (high-low)/2;
-    if(diff < 0) diff += M_PI;
-
-    if(diff == 0){
-        fprintf(stderr, "Illegal argument to function changes.\n");
-        cerr << "Low: " << low << " High: " << high << "\n";
-        return;
-    }
-
-    dx = hwidth * (cos(low)/tan(diff) - sin(low));
-    dy = hwidth * (sin(low)/tan(diff) + cos(low));
-}
-
-void flush_with_edge(Point &pnt, double slope, double y_ext){
-    double x_old, y_old, x_new;
-
-    x_old = pnt.x;
-    y_old = pnt.y;
-    x_new = slope != 0 ? (y_ext - y_old) / slope + x_old : x_old;
-
-    pnt.x = x_new;
-    pnt.y = y_ext;
-}
-
-void add_if_missing(Point p, map<Point, int> &pmap, vector<Point> &plist){
-    if(pmap.find(p) == pmap.end()){
-        pmap.insert(make_pair(p, pmap.size()));
-        plist.push_back(p);
-    }
-}
-
-void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc, bool makepoly, bool level){
-
-    map<Point, vector<double>> angmap;
-    map<Point, int> point_map, poly_pmap;
-    Point p1, p2, key;
-    Point p1f, p2f, p3f, p4f, p1fb, p2fb, p3fb, p4fb;
-    double low, high, ang1, ang2, dx, dy, hwidth, slope;
-    double ymin = FLT_MAX, ymax = -FLT_MAX, ylow, yhigh, y_ext;
-    bool p1fflag, p2fflag, p3fflag, p4fflag, p1_is_end, p2_is_end;
-    vector<Point> replace_points;
-    vector<Edge> replace_edges;
-    hwidth = thickness/2;
-
-    for(Edge e : current.edges){
-        p1 = current.points[e.idx1];
-        p2 = current.points[e.idx2];
-
-        if(p1.y < ymin) ymin = p1.y;
-        if(p2.y < ymin) ymin = p2.y;
-        if(p1.y > ymax) ymax = p1.y;
-        if(p2.y > ymax) ymax = p2.y;
-
-        ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
-        if(ang1 < 0) ang1 += 2*M_PI;
-        ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
-
-        if(angmap.find(p1) == angmap.end()){
-            angmap.insert(make_pair(p1, vector<double>()));
-        }
-
-        if(angmap.find(p2) == angmap.end()){
-            angmap.insert(make_pair(p2, vector<double>()));
-        }
-
-        angmap[p1].push_back(ang1);
-        angmap[p2].push_back(ang2);
-    }
-
-    ylow = ymin - hwidth;
-    yhigh = ymax + hwidth;
-
-    for(auto iter = angmap.begin(); iter != angmap.end(); iter ++){
-        key = iter->first;
-        sort(angmap[key].begin(), angmap[key].end());
-    }
-
-    for(Edge e : current.edges){
-        p1 = current.points[e.idx1];
-        p2 = current.points[e.idx2];
-
-        ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
-        if(ang1 < 0) ang1 += 2*M_PI;
-        ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
-
-        slope = abs(p2.x - p1.x) > FLOAT_TOL ? (p2.y - p1.y)/(p2.x - p1.x) : BIG_SLOPE;
-        p1fflag = false;
-        p2fflag = false;
-        p3fflag = false;
-        p4fflag = false;
-        p1_is_end = false;
-        p2_is_end = false;
-
-        getangles(angmap[p1], ang1, low, high);
-        if(abs(ang1 - low) < FLOAT_TOL){
-            p1_is_end = true;
-            p1f = Point(p1.x + hwidth*sin(ang1), p1.y - hwidth*cos(ang1));
-            p3f = Point(p1.x - hwidth*sin(ang1), p1.y + hwidth*cos(ang1));
-
-            if((abs(p1.y - ymin) < FLOAT_TOL || abs(p1.y - ymax) < FLOAT_TOL) && abs(slope) >= FLOAT_TOL){
-                y_ext = abs(p1.y - ymin) < FLOAT_TOL ? ylow : yhigh;
-                flush_with_edge(p1f, slope, y_ext);
-                flush_with_edge(p3f, slope, y_ext);
-            }
-
-            add_if_missing(p1f, point_map, replace_points);
-            add_if_missing(p3f, point_map, replace_points);
-
-            replace_edges.push_back(Edge(point_map[p1f], point_map[p3f]));
-        }
-        else{
-            changes(low, ang1, hwidth, dx, dy);
-            p1f = Point(p1.x + dx, p1.y + dy);
-            changes(ang1, high, hwidth, dx, dy);
-            p3f = Point(p1.x + dx, p1.y + dy);
-
-            if((p1f.y < ylow - FLOAT_TOL || p1f.y > yhigh + FLOAT_TOL) &&level){
-                y_ext = abs(p1.y - ymin) < FLOAT_TOL ? ylow : yhigh;
-                flush_with_edge(p1f, slope, y_ext);
-                add_if_missing(p1f, point_map, replace_points);
-                p1fb = Point(p1.x, y_ext);
-                add_if_missing(p1fb, point_map, replace_points);
-                p1fflag = true;
-            }
-
-            else add_if_missing(p1f, point_map, replace_points);
-            if((p3f.y < ylow - FLOAT_TOL || p3f.y > yhigh + FLOAT_TOL) &&level){
-                y_ext = abs(p1.y - ymin) < FLOAT_TOL ? ylow : yhigh;
-                flush_with_edge(p3f, slope, y_ext);
-                add_if_missing(p3f, point_map, replace_points);
-                p3fb = Point(p1.x, y_ext);
-                add_if_missing(p3fb, point_map, replace_points);
-                p3fflag = true;
-            }
-            else add_if_missing(p3f, point_map, replace_points);
-        }
-
-        getangles(angmap[p2], ang2, low, high);
-        if(abs(ang2 - low) < FLOAT_TOL){
-            p2_is_end = true;
-            p2f = Point(p2.x + hwidth*sin(ang1), p2.y - hwidth*cos(ang1));
-            p4f = Point(p2.x - hwidth*sin(ang1), p2.y + hwidth*cos(ang1));
-
-            if((abs(p2.y - ymin) < FLOAT_TOL || abs(p2.y - ymax) < FLOAT_TOL) && abs(slope) >= FLOAT_TOL){
-                y_ext = abs(p2.y - ymin) < FLOAT_TOL ? ylow : yhigh;
-                flush_with_edge(p2f, slope, y_ext);
-                flush_with_edge(p4f, slope, y_ext);
-            }
-
-            add_if_missing(p2f, point_map, replace_points);
-            add_if_missing(p4f, point_map, replace_points);
-
-            replace_edges.push_back(Edge(point_map[p2f], point_map[p4f]));
-        }
-
-        else{
-            changes(ang2, high, hwidth, dx, dy);
-            p2f = Point(p2.x + dx, p2.y + dy);
-            changes(low, ang2, hwidth, dx, dy);
-            p4f = Point(p2.x + dx, p2.y + dy);
-
-            if((p2f.y < ylow - FLOAT_TOL || p2f.y > yhigh + FLOAT_TOL) &&level){
-                y_ext = abs(p2.y - ymin) < FLOAT_TOL ? ylow : yhigh;
-                flush_with_edge(p2f, slope, y_ext);
-                add_if_missing(p2f, point_map, replace_points);
-                p2fb = Point(p2.x, y_ext);
-                add_if_missing(p2fb, point_map, replace_points);
-                p2fflag = true;
-            }
-
-            else add_if_missing(p2f, point_map, replace_points);
-            if((p4f.y < ylow - FLOAT_TOL || p4f.y > yhigh + FLOAT_TOL) &&level){
-                y_ext = abs(p2.y - ymin) < FLOAT_TOL ? ylow : yhigh;
-                flush_with_edge(p4f, slope, y_ext);
-                add_if_missing(p4f, point_map, replace_points);
-                p4fb = Point(p2.x, y_ext);
-                add_if_missing(p4fb, point_map, replace_points);
-                p4fflag = true;
-            }
-            else add_if_missing(p4f, point_map, replace_points);
-        }
-
-        if(p1fflag) replace_edges.push_back(Edge(point_map[p1fb], point_map[p1f]));
-        replace_edges.push_back(Edge(point_map[p1f], point_map[p2f]));
-        if(p2fflag) replace_edges.push_back(Edge(point_map[p2f], point_map[p2fb]));
-        if(p3fflag) replace_edges.push_back(Edge(point_map[p3fb], point_map[p3f]));
-        replace_edges.push_back(Edge(point_map[p3f],point_map[p4f]));
-        if(p4fflag) replace_edges.push_back(Edge(point_map[p4f], point_map[p4fb]));
-
-        if(makepoly){
-
-            //Ensure necessary points are added to the polycomplex object
-            add_if_missing(p1, poly_pmap, pc.points);
-            add_if_missing(p2, poly_pmap, pc.points);
-            add_if_missing(p1f, poly_pmap, pc.points);
-            add_if_missing(p2f, poly_pmap, pc.points);
-            add_if_missing(p3f, poly_pmap, pc.points);
-            add_if_missing(p4f, poly_pmap, pc.points);
-            if(p1fflag) add_if_missing(p1fb, poly_pmap, pc.points);
-            if(p2fflag) add_if_missing(p2fb, poly_pmap, pc.points);
-            if(p3fflag) add_if_missing(p3fb, poly_pmap, pc.points);
-            if(p4fflag) add_if_missing(p4fb, poly_pmap, pc.points);
-
-            vector<int> vertices({poly_pmap[p1f], poly_pmap[p2f]});
-
-            if(!p2_is_end){
-                if(p2fflag){
-                    vertices.push_back(poly_pmap[p2fb]);
-                }
-                vertices.push_back(poly_pmap[p2]);
-            
-                if(p4fflag){
-                    vertices.push_back(poly_pmap[p4fb]);
-                }
-            }
-            vertices.push_back(poly_pmap[p4f]);
-            vertices.push_back(poly_pmap[p3f]);
-
-            if(! p1_is_end){
-                if(p3fflag){
-                    vertices.push_back(poly_pmap[p3fb]);
-                }
-                vertices.push_back(poly_pmap[p1]);
-                if(p1fflag){
-                    vertices.push_back(poly_pmap[p1fb]);
-                }
-            }
-
-            //Make sure the vertices are traversed in CCW order
-            p1f = pc.points[vertices[0]];
-            p2f = pc.points[vertices[1]];
-            p3f = pc.points[vertices[2]];
-            ang1 = atan2(p1f.y - p2f.y, p1f.x - p2f.x);
-            if(ang1 < 0) ang1 += 2*M_PI;
-            ang2 = atan2(p3f.y - p2f.y, p3f.x - p2f.x);
-            if(ang2 < 0) ang2 += 2*M_PI;
-            if(ang1 < ang2) reverse(vertices.begin(), vertices.end());
-
-	        //Add the polygon and its edges to the data structure describing
-	        //the polygonal tiling at the large length scale.
-            pc.polygons.push_back(NetPolygon(pc.points, vertices, pc.polygons.size()));
-	        for(int idx = 0; idx < vertices.size(); idx++){
-                pc.edges.insert(Edge(vertices[idx], vertices[(idx+1)%vertices.size()]));
-            }
-        }
-
-    }
-
-    current.clear();
-    current.points.insert(current.points.begin(), replace_points.begin(), replace_points.end());
-    current.edges.insert(current.edges.begin(), replace_edges.begin(), replace_edges.end());
-}
-
-void scale_vector(vector<double>& in, double scale){
-    int index;
-    for(index = 0; index < in.size(); index++){
-        in.at(index) = in.at(index)*scale;
-    }
-}
-
-bool import_lattice(string name, vector<vector<double>>& rules, map<int,vector<vector<double>>>& nns, double scale){
-    ifstream latfile;
-    string nextline;
-    bool again, blank, fileopen = false;
-    vector<double> rule, nn;
-    int lcount = 0, pointiter, nncount = 0, ruleiter = 0;
-
-    //Attempt to open lattice file
-    latfile.open(name);
-
-    if(!latfile.is_open()){
-        cerr << "The specified file could not be read read\n";
-        return false;
-    }
-
-    //Process rules until a blank line is reached
-    blank = false;
-    while(!latfile.eof()){
-        lcount ++;
-        getline(latfile, nextline);
-        if(nextline.empty()) break;
-
-        rule = parse_doubles(split(nextline, ' '));
-        if(rule.size() < 3){
-            fprintf(stderr, "Too few numbers in rule on line line %d\n",lcount);
-            latfile.close();
-            return false;
-        }
-        scale_vector(rule, scale);
-        rules.push_back(rule);
-    }
-    
-    //Read nearest neighbor rules
-    for(vector<double> nextrule : rules){
-        ruleiter ++;
-        for(pointiter = 1; pointiter <= nextrule.size() - 2; pointiter ++){
-            vector<vector<double>> nextset;
-            while(!latfile.eof()){
-                lcount ++;
-                getline(latfile, nextline);
-                if(nextline.empty()) break;
-                nn = parse_doubles(split(nextline, ' '));
-                if(nn.size() != 2) fprintf(stderr, "Insufficient information for nearest neighbor rule on line %d.\n", lcount);
-                else{
-                   scale_vector(nn, scale);
-                   nextset.push_back(nn);
-                }
-            }
-            nns.insert(pair<int, vector<vector<double>>>(nncount++, nextset));
-        }
-    }
-
-    latfile.close();
-    return true;
-}
 
 void get_lattice_info(vector<vector<double>>& rules, map<int,vector<vector<double>>>& nns){
 
@@ -944,37 +505,6 @@ void loadNetStack(stack<NetData>& net_stack){
     }while(yesno("Add another layer?"));
 }
 
-//Given a set of points and edges connecting those points, partition edges into
-//two subsets: a random set forming a minimum spanning tree, and all others.
-void randomMST(NetworkComplex nc, vector<Edge> &keep, vector<Edge>& rejects){
-    int index = 0, numkept = 0, numneeded;
-    int root1, root2;
-    Edge next;
-    unsigned seed = get_random_seed();
-    mt19937 gen(seed);
-
-    vector<int> union_find_table(nc.points.size(), -1);
-    numneeded = nc.points.size() - 1;
-
-    shuffle(nc.edges.begin(), nc.edges.end(), gen);
-    while(!nc.edges.empty()){
-        next = nc.edges[0];
-        nc.edges.erase(nc.edges.begin());
-        root1 = find_root(union_find_table, next.idx1);
-        root2 = find_root(union_find_table, next.idx2);
-        if(root1 != root2){
-            makeunion(union_find_table, root1, root2);
-            keep.push_back(next);
-            if(++numkept == numneeded) break;
-        }
-        else rejects.push_back(next);
-    }
-
-    for(Edge next_edge : nc.edges){
-        rejects.push_back(next_edge);
-    }
-}
-
 //This function is similar to the one above, but considers the case in which
 //the edges are a proper subset of all edges in a network.
 void subsetRandomMST(vector<Edge> in, vector<Edge> &keep, set<Edge>& rejects){
@@ -1012,59 +542,6 @@ void subsetRandomMST(vector<Edge> in, vector<Edge> &keep, set<Edge>& rejects){
 
     for(Edge next_edge : in){
         rejects.insert(next_edge);
-    }
-}
-
-NetworkComplex random_connected(NetworkComplex in, double to_keep){
-    int num_needed, reject_index;
-    vector<Edge> kept_edges, rejects;
-    unsigned seed = get_random_seed();
-    mt19937 gen(seed);
-    set<int> kept_indices;
-    map<int, int> pmap;
-    vector<Point> kept_points;
-
-    num_needed = (int) (to_keep * in.edges.size());
-    randomMST(in, kept_edges, rejects);
-    shuffle(rejects.begin(), rejects.end(), gen);
-
-    reject_index = 0;
-    do{
-        kept_edges.push_back(rejects[reject_index++]);
-    }while(reject_index < rejects.size() && kept_edges.size() < num_needed);
-
-    //Identify kept points, and reassign indices in each kept edge
-    for(Edge e : kept_edges){
-        kept_indices.insert(e.idx1);
-        kept_indices.insert(e.idx2);
-    }
-    for(auto iter = kept_indices.begin(); iter != kept_indices.end(); iter++){
-        pmap.insert(make_pair(*iter, pmap.size()));
-        kept_points.push_back(in.points[*iter]);
-    }
-    for(Edge e : kept_edges){
-        e.idx1 = pmap[e.idx1];
-        e.idx2 = pmap[e.idx2];
-    }
-
-    return NetworkComplex(kept_points, kept_edges);
-}
-
-/*
-This function adds Gaussian random noise to the location of each point.
-The function takes as arguments the original set of points and edges describing
-the network, and a standard deviation for Gaussian random noise. Points are 
-shifted, and edges are updated accordingly.
-*/
-void displace_points_grn(NetworkComplex &nc, double sdev){
-
-    unsigned seed = get_random_seed();
-    mt19937 gen(seed);
-    normal_distribution<double> dist(0, sdev);
-
-    for(int iter = 0; iter < nc.points.size(); iter++){
-        nc.points[iter].x += dist(gen);
-        nc.points[iter].y += dist(gen);
     }
 }
 
@@ -1278,22 +755,22 @@ NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bot
                 for(int poly2 : hits2){
 
                     //If the indices are equal, add a record of this edge to
-		            //the edges within a given polygonal tile.
-		            if(poly1 == poly2){
+                    //the edges within a given polygonal tile.
+                    if(poly1 == poly2){
                         if(to_keep < 1){
                             edge_collection[poly1].push_back(e);
                             in_points.insert(e.idx1);
                             in_points.insert(e.idx2);
                         }
-			            else kept_edges.push_back(e);
-			            included = true;
+                        else kept_edges.push_back(e);
+                        included = true;
                         break;
                     }
 
-		            //If the indices are different, determine whether the edge
-		            //straddles an interior edge shared between two tiles. Only
-		            //in this case should the edge be kept.
-		            else{
+                    //If the indices are different, determine whether the edge
+                    //straddles an interior edge shared between two tiles. Only
+                    //in this case should the edge be kept.
+                    else{
                         if(interior_crossing(bottom.points, e, pc, poly1)){
                             if(to_keep < 1){
                                 adj_idx = adj_map_index(poly1, poly2, pc.polygons.size());
@@ -1301,8 +778,8 @@ NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bot
                                     adj_map.insert(make_pair(adj_idx, vector<Edge>()));
                                 }
                                 adj_map[adj_idx].push_back(e);
-			                    in_points.insert(e.idx1);
-			                    in_points.insert(e.idx2);
+                                in_points.insert(e.idx1);
+                                in_points.insert(e.idx2);
                             }
 
                             else kept_edges.push_back(e);
@@ -1311,7 +788,7 @@ NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bot
                         }
                     }
                 }
-		        if(included) break;
+                if(included) break;
             }
         }
     }
@@ -1401,8 +878,8 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
         NetPolygon grain = pc.polygons[index];
         vector<Point> copy;
 
-	    //Find the vertices of the grain and rotate them so that the large-scale
-	    //bond from which the grain was made is oriented horizontally
+        //Find the vertices of the grain and rotate them so that the large-scale
+        //bond from which the grain was made is oriented horizontally
         for(int iter = 0; iter < grain.vertices.size(); iter++){
             copy.push_back(pc.points[grain.vertices[iter]]);
         }
@@ -1510,13 +987,13 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
             }
         }
 
-	    if(to_keep < 1){
+        if(to_keep < 1){
             int key = adj_map_index(iter->first.idx1, iter->first.idx2, pc.polygons.size());
             adj_map.insert(make_pair(key, stitch_edges));
         }
-	    else{
+        else{
             retain.insert(retain.end(), stitch_edges.begin(), stitch_edges.end());
-	    }
+        }
     }
 
     //If the network is to be diluted, use the procedure for creating a random,
