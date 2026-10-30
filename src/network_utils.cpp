@@ -1,6 +1,8 @@
 #include "network_utils.hpp"
 #include <time.h>
 #include <algorithm>
+#include <memory>
+#include "hnet_bvh.hpp"
 
 using namespace std;
 
@@ -18,7 +20,7 @@ bool point_in_polygon(vector<Point> points, NetPolygon poly, Point query){
 
     //This code assumes edges are ordered in CCW order. Given this convention,
     //this test uses the Robust Geometric Predicates orient2d method, developed
-    //by Jonathan Richard Shewchuck, to determine whether the query point is
+    //by Jonathan Richard Shewchuk, to determine whether the query point is
     //to the "left", in a generalized sense, of each polygon edge.
     for(int i = 0; i < poly.vertices.size(); i++){
         p1[0] = points[poly.vertices[i]].x;
@@ -167,7 +169,7 @@ void open_dat_file(string prompt, ifstream& file_stream){
     }while(! file_stream.is_open());
 }
 
-void open_output_file(string prompt, ofstream& file_stream){
+/*void open_output_file(string prompt, ofstream& file_stream){
     string response;
 
     do{
@@ -178,7 +180,7 @@ void open_output_file(string prompt, ofstream& file_stream){
             if(! yesno("The file could not be read. Try again?")) break;
         }
     }while(! file_stream.is_open());
-}
+}*/
 
 //Perform a uniform displacement of all points in a set
 void displace(vector<Point> &points, double xdisp, double ydisp){
@@ -511,6 +513,7 @@ void add_if_missing(const T &t, map<T, int> &idx_map, vector<T> &list){
 
     if(idx_map.find(t) == idx_map.end()){
         idx_map.insert(make_pair(t, idx_map.size()));
+        list.push_back(t);
     }
 }
 
@@ -525,11 +528,12 @@ void flush_with_edge(Point &pnt, double slope, double y_ext){
     pnt.y = y_ext;
 }
 
-void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc, bool makepoly, bool level){
+void add_thickness(NetworkComplex &nc, double thickness, PolygonComplex &pc, bool makepoly, bool level){
 
-    map<Point, vector<double>> angmap;
+    map<int, vector<double>> angmap;
+    map<Edge, double> edge_map;
     map<Point, int> point_map, poly_pmap;
-    Point p1, p2, key;
+    Point p1, p2;
     Point p1f, p2f, p3f, p4f, p1fb, p2fb, p3fb, p4fb;
     double low, high, ang1, ang2, dx, dy, hwidth, slope;
     double ymin = FLT_MAX, ymax = -FLT_MAX, ylow, yhigh, y_ext;
@@ -538,45 +542,38 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
     vector<Edge> replace_edges;
     hwidth = thickness/2;
 
-    for(Edge e : current.edges){
-        p1 = current.points[e.idx1];
-        p2 = current.points[e.idx2];
-
+    for(int idx = 0; idx < nc.points.size(); idx ++) {
+        p1 = nc.points[idx];
         if(p1.y < ymin) ymin = p1.y;
-        if(p2.y < ymin) ymin = p2.y;
         if(p1.y > ymax) ymax = p1.y;
-        if(p2.y > ymax) ymax = p2.y;
+        angmap.insert(make_pair(idx, vector<double>()));
+    }
+
+    for(Edge e : nc.edges){
+        p1 = nc.points[e.idx1];
+        p2 = nc.points[e.idx2];
 
         ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
         if(ang1 < 0) ang1 += 2*M_PI;
         ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
 
-        if(angmap.find(p1) == angmap.end()){
-            angmap.insert(make_pair(p1, vector<double>()));
-        }
-
-        if(angmap.find(p2) == angmap.end()){
-            angmap.insert(make_pair(p2, vector<double>()));
-        }
-
-        angmap[p1].push_back(ang1);
-        angmap[p2].push_back(ang2);
+        edge_map.insert(make_pair(e, ang1));
+        angmap[e.idx1].push_back(ang1);
+        angmap[e.idx2].push_back(ang2);
     }
 
     ylow = ymin - hwidth;
     yhigh = ymax + hwidth;
 
     for(auto iter = angmap.begin(); iter != angmap.end(); iter ++){
-        key = iter->first;
-        sort(angmap[key].begin(), angmap[key].end());
+        sort(angmap[iter->first].begin(), angmap[iter->first].end());
     }
 
-    for(Edge e : current.edges){
-        p1 = current.points[e.idx1];
-        p2 = current.points[e.idx2];
+    for(Edge e : nc.edges){
+        p1 = nc.points[e.idx1];
+        p2 = nc.points[e.idx2];
 
-        ang1 = atan2(p2.y - p1.y, p2.x - p1.x);
-        if(ang1 < 0) ang1 += 2*M_PI;
+        ang1 = edge_map[e];
         ang2 = ang1 < M_PI ? ang1 + M_PI : ang1 - M_PI;
 
         slope = abs(p2.x - p1.x) > FLOAT_TOL ? (p2.y - p1.y)/(p2.x - p1.x) : BIG_SLOPE;
@@ -587,7 +584,7 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
         p1_is_end = false;
         p2_is_end = false;
 
-        getangles(angmap[p1], ang1, low, high);
+        getangles(angmap[e.idx1], ang1, low, high);
         if(abs(ang1 - low) < FLOAT_TOL){
             p1_is_end = true;
             p1f = Point(p1.x + hwidth*sin(ang1), p1.y - hwidth*cos(ang1));
@@ -631,7 +628,7 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
             else add_if_missing(p3f, point_map, replace_points);
         }
 
-        getangles(angmap[p2], ang2, low, high);
+        getangles(angmap[e.idx2], ang2, low, high);
         if(abs(ang2 - low) < FLOAT_TOL){
             p2_is_end = true;
             p2f = Point(p2.x + hwidth*sin(ang1), p2.y - hwidth*cos(ang1));
@@ -732,19 +729,18 @@ void add_thickness(NetworkComplex &current, double thickness, PolygonComplex &pc
             if(ang2 < 0) ang2 += 2*M_PI;
             if(ang1 < ang2) reverse(vertices.begin(), vertices.end());
 
-            //Add the polygon and its edges to the data structure describing
-            //the polygonal tiling at the large length scale.
+	        //Add the polygon and its edges to the data structure describing
+	        //the polygonal tiling at the large length scale.
             pc.polygons.push_back(NetPolygon(pc.points, vertices, pc.polygons.size()));
-            for(int idx = 0; idx < vertices.size(); idx++){
+	        for(int idx = 0; idx < vertices.size(); idx++){
                 pc.edges.insert(Edge(vertices[idx], vertices[(idx+1)%vertices.size()]));
             }
         }
 
     }
 
-    current.clear();
-    current.points.insert(current.points.begin(), replace_points.begin(), replace_points.end());
-    current.edges.insert(current.edges.begin(), replace_edges.begin(), replace_edges.end());
+    nc.points.assign(replace_points.begin(), replace_points.end());
+    nc.edges.assign(replace_edges.begin(), replace_edges.end());
 }
 
 NetworkComplex random_connected(NetworkComplex in, double to_keep){
@@ -810,4 +806,310 @@ void reassign_points_edges(NetworkComplex &nc, vector<Edge> kept_edges){
 
     nc.points = kept_points;
     nc.edges = kept_edges;
+}
+
+double calc_alignment(vector<Point> small_points, vector<Edge> small_edges, vector<Point> large_points, Edge skel_edge){
+    double alignment_sum = 0, mag, dx, dy, skel_nx, skel_ny;
+
+    dx = large_points[skel_edge.idx2].x - large_points[skel_edge.idx1].x;
+    dy = large_points[skel_edge.idx2].y - large_points[skel_edge.idx1].y;
+    mag = sqrt(dx*dx + dy*dy);
+    skel_nx = dx / mag;
+    skel_ny = dy / mag;
+
+    for(Edge next_edge : small_edges){
+        dx = small_points[next_edge.idx2].x - small_points[next_edge.idx1].x;
+        dy = small_points[next_edge.idx2].y - small_points[next_edge.idx1].y;
+        mag = sqrt(dx*dx + dy*dy);
+        alignment_sum += abs((dx * skel_nx + dy * skel_ny) / mag);
+    }
+
+    return alignment_sum / small_edges.size();
+}
+
+//Group points according to the large-scale bonds in which they lie. Also find
+//all edges within a given large-scale bond, and produce lists of edges
+//on the small scale that span large-scale bonds.
+void sort_edges(double length, NetworkComplex bottom, PolygonComplex pc, vector<vector<Edge>> &edge_collection){
+    
+    int prev;
+    vector<int> curr_list;
+
+    for(int i = 0; i < pc.polygons.size(); i ++){
+        edge_collection.push_back(vector<Edge>());
+    }
+
+    //Data structure for efficient point-in-polygon tests
+    shared_ptr<HNetBVH> hnb = make_shared<HNetBVH>(pc.points, pc.polygons);
+
+    for(Edge next_edge : bottom.edges){
+        curr_list.clear();
+        vector<int> hits1 = hnb->within(bottom.points[next_edge.idx1]);
+        vector<int> hits2 = hnb->within(bottom.points[next_edge.idx2]);
+        curr_list.insert(curr_list.end(), hits1.begin(), hits1.end());
+        curr_list.insert(curr_list.end(), hits2.begin(), hits2.end());
+        prev = -1;
+        for(int iter = 0; iter < curr_list.size(); iter ++){
+            if(curr_list[iter] != prev){
+                edge_collection[curr_list[iter]].push_back(next_edge);
+            }
+            prev = curr_list[iter];
+        }
+    }
+}
+
+void add_edge(NetworkComplex &nc, map<Point, int> &pmap, Point p1, Point p2){
+
+    add_if_missing(p1, pmap, nc.points);
+    add_if_missing(p2, pmap, nc.points);
+
+    nc.edges.push_back(Edge(pmap[p1], pmap[p2]));
+}
+
+//This function is similar to the one above, but considers the case in which
+//the edges are a proper subset of all edges in a network.
+void subsetRandomMST(vector<Edge> in, vector<Edge> &keep, set<Edge>& rejects){
+    int numkept = 0, numneeded, root1, root2;
+    Edge next;
+    map<int, int> pmap;
+    unsigned seed = get_random_seed();
+    mt19937 gen(seed);
+
+    for(Edge e : in){
+        if(pmap.find(e.idx1) == pmap.end()){
+            pmap.insert(make_pair(e.idx1, pmap.size()));
+        }
+        if(pmap.find(e.idx2) == pmap.end()){
+            pmap.insert(make_pair(e.idx2, pmap.size()));
+        }
+    }
+
+    vector<int> union_find_table(pmap.size(), -1);
+    numneeded = pmap.size() - 1;
+
+    shuffle(in.begin(), in.end(), gen);
+    while(!in.empty()){
+        next = in[0];
+        in.erase(in.begin());
+        root1 = find_root(union_find_table, pmap[next.idx1]);
+        root2 = find_root(union_find_table, pmap[next.idx2]);
+        if(root1 != root2){
+            makeunion(union_find_table, root1, root2);
+            keep.push_back(next);
+            if(++numkept == numneeded) break;
+        }
+        else rejects.insert(next);
+    }
+
+    for(Edge next_edge : in){
+        rejects.insert(next_edge);
+    }
+}
+
+/*After the edges at one length scale that fall within the edges of the next
+larger length scale have been determined, this function stitches together the 
+network at the smaller length scale, given a knowledge of edges at the small 
+length scale contained within a polygonal tiling of edges at the large length 
+scale.
+*/
+vector<Edge> stitch_network(vector<vector<Edge>> collection, map<int, vector<Edge>> adj_map, set<int> in_points, double to_keep){
+
+    int canonical_count, root1, root2;
+    int numNeeded, discardIter;
+    unordered_map<int, int> point_map;
+    vector<Edge> pool, next_al, retain, edgeMST, discard;
+    set<Edge> rejects;
+    Edge front;
+    vector<Edge>::iterator pool_iter;
+    unsigned seed = get_random_seed();
+    mt19937 gen(seed);
+
+    canonical_count = in_points.size();
+
+    for(int next_point : in_points){
+        point_map.insert(make_pair(next_point, point_map.size()));
+    }
+
+    vector<int> mst_table(point_map.size(), -1);
+
+    for(vector<Edge> next_set : collection){
+        edgeMST.clear();
+        subsetRandomMST(next_set, edgeMST, rejects);
+        for(Edge next_edge : edgeMST){
+            retain.push_back(next_edge);
+            root1 = find_root(mst_table, point_map[next_edge.idx1]);
+            root2 = find_root(mst_table, point_map[next_edge.idx2]);
+            if(root1 != root2){
+                makeunion(mst_table, root1, root2);
+                canonical_count --;
+            }
+        }
+    }
+
+    for(auto it = adj_map.begin(); it != adj_map.end(); it++){
+        next_al = it->second;
+
+        shuffle(next_al.begin(), next_al.end(), gen);
+        retain.push_back(next_al[0]);
+
+        if(next_al.size() > 1){
+            for(auto al_iter = next_al.begin()+1; al_iter != next_al.end(); al_iter++){
+                rejects.insert(*al_iter);
+            }
+        }
+    }
+
+    numNeeded = (int) ((retain.size() + rejects.size()) * to_keep);
+    pool.insert(pool.begin(), rejects.begin(), rejects.end());
+    shuffle(pool.begin(), pool.end(), gen);
+    for(pool_iter = pool.begin(); pool_iter != pool.end(); pool_iter ++){
+        if(canonical_count == 1) break;
+        front = *pool_iter;
+        root1 = find_root(mst_table, point_map[front.idx1]);
+        root2 = find_root(mst_table, point_map[front.idx2]);
+        if(root1 != root2){
+            makeunion(mst_table, root1, root2);
+            canonical_count --;
+            retain.push_back(front);
+        }
+        else discard.push_back(front);
+    }
+
+    discard.insert(discard.end(), pool_iter, pool.end());
+
+    shuffle(discard.begin(), discard.end(), gen);
+
+    discardIter = 0;
+    while(retain.size() < numNeeded && discardIter < discard.size()){
+        retain.push_back(discard[discardIter ++]);
+    }
+
+    return retain;
+}
+
+//Given a subset of all edges in a network, find out which points are retained,
+//and construct a new network complex with the reduced point set and edges
+//with relabled endpoint indices.
+NetworkComplex reduced_network(vector<Point> all_points, vector<Edge> kept_edges){
+
+    NetworkComplex reduced;
+    map<int, int> pmap;
+
+    for(Edge e : kept_edges){
+        if(pmap.find(e.idx1) == pmap.end()){
+            pmap.insert(make_pair(e.idx1, pmap.size()));
+            reduced.points.push_back(all_points[e.idx1]);
+        }
+        if(pmap.find(e.idx2) == pmap.end()){
+            pmap.insert(make_pair(e.idx2, pmap.size()));
+            reduced.points.push_back(all_points[e.idx2]);
+        }
+    }
+
+    for(Edge e : kept_edges){
+        reduced.edges.push_back(Edge(pmap[e.idx1], pmap[e.idx2]));
+    }
+
+    return reduced;
+}
+
+/*
+Helper function for sieve_edges that calculates indices for use as keys
+to map pairs of adjacent polygons from a tiling of a network to edges straddling
+those polygons
+*/
+int adj_map_index(int index1, int index2, int total){
+    int low = index1 <= index2 ? index1 : index2;
+    int high = low == index1 ? index2 : index1;
+
+    return low * (total + total + 1 - low) / 2 + high;
+}
+
+void build_plc_map(NetworkComplex nc, map<int, list<int>> &emap){
+
+    for(int idx = 0; idx < nc.points.size(); idx++){
+        emap.insert(make_pair(idx, list<int>()));
+    }
+
+    for(Edge e : nc.edges) {
+        emap[e.idx1].push_back(e.idx2);
+        emap[e.idx2].push_back(e.idx1);
+    }
+}
+
+/*
+*Locate a starting point in a cycle that is not part of a colinear group of
+*three or more points
+*/
+int pick_start(vector<int> cycle, NetworkComplex nc){
+    int start_index = 0, curr_index, next_index_1, next_index_2;
+    Point curr_p, next_p_1, next_p_2;
+    double slope1, slope2;
+    size_t length = cycle.size();
+
+    for(curr_index = 0; curr_index < length; curr_index ++){
+        next_index_1 = (curr_index + 1) % length;
+        next_index_2 = (curr_index + 2) % length;
+        curr_p = nc.points[cycle[curr_index]];
+        next_p_1 = nc.points[cycle[next_index_1]];
+        next_p_2 = nc.points[cycle[next_index_2]];
+
+        //If the slopes of the next two edges are different, choose the
+        //next index as the starting index
+        slope1 = (next_p_1.y - curr_p.y) / (next_p_1.x - curr_p.x);
+        slope2 = (next_p_2.y - next_p_1.y) / (next_p_2.x - next_p_1.x);
+
+        if(abs(slope2 - slope1) > FLOAT_TOL){
+            start_index = next_index_1;
+            break;
+        }
+    }
+
+    return start_index;
+}
+
+vector<vector<int>> build_cycles(map<int, list<int>> emap){
+    int curr_index, next_index;
+    map<int, list<int>>::iterator emap_pos;
+    vector<int> curr_cycle;
+    vector<vector<int>> cycle_list;
+    bool cycle_complete;
+
+    //Build cycles by iterating over entries in the map from indices to
+    //lists of neighbor indices.
+    while(! emap.empty()){
+        //Start a new cycle by finding the first element of the map and
+        //making the key the first element in the cycle.
+        vector<int> curr_cycle;
+        curr_index = emap.begin()->first;
+        cycle_complete = false;
+
+        //Add successive elements to the current cycle by finding the first
+        //neighbor listed for the current vertex in the cycle.
+        do{
+            next_index = emap[curr_index].front();
+            curr_cycle.push_back(next_index);
+
+            //Remove the current index and the next index from each other's
+            //lists of neighbors.
+            emap[curr_index].remove(next_index);
+            if(emap[curr_index].empty()){
+                emap_pos = emap.find(curr_index);
+                emap.erase(emap_pos);
+            }
+
+            emap[next_index].remove(curr_index);
+            if(emap[next_index].empty()){
+                emap_pos = emap.find(next_index);
+                emap.erase(emap_pos);
+                //When the list to which next_index is mapped has no elements,
+                //the current cycle is complete.
+                cycle_complete = true;
+            }
+            curr_index = next_index;
+        }while(! cycle_complete);
+        cycle_list.push_back(curr_cycle);
+    }
+
+    return cycle_list;
 }

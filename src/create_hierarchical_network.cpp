@@ -1,5 +1,7 @@
 /*
- * Author: Jonathan MichenyThis program prompts a user for boundaries and rules
+ * Author: Jonathan Michel
+ *
+ * This program prompts a user for boundaries and rules
  * for producing lattice sites and nearest neighbor connections. From here, a
  * set of line segments joining nearest neighbor locations is produced.
  * Connections can be removed from the network in two ways; one method is
@@ -33,30 +35,6 @@
 using namespace std;
 
 #define MAX_ATTEMPTS 10
-
-//Data type for storing ordered pairs of indices into lists of geometrical
-//objects
-struct IdxPair{
-
-    IdxPair(int arg1, int arg2){
-        idx1 = min(arg1, arg2);
-        idx2 = max(arg1, arg2);
-    }
-
-    int idx1, idx2;
-
-    //Utility functions establishing equality and ordering relations
-    bool operator == (const IdxPair& pair) const {
-        return pair.idx1 == idx1 && pair.idx2 == idx2;
-    }
-
-    friend bool operator < (const IdxPair &p1, const IdxPair &p2){
-        if(p2.idx2 > p1.idx2) return true;
-        else if(p2.idx2 < p1.idx2) return false;
-        else if(p2.idx1 > p1.idx1) return true;
-        else return false;
-    }
-};
 
 //Structure for stitching together grains from a disordered large-scale network
 struct GrainFusion{
@@ -139,6 +117,12 @@ void print_network(NetworkComplex nc, string message){
 
     fclose(out);
 }
+
+//Forward declarations of functions needed for exporting networks in SVG and
+//STL form
+bool export_svg(NetworkComplex nc, double tap_w, double tap_h, double crad, double tab_h, string file_name);
+
+void export_extruded_svg(NetworkComplex nc, float height, string file_name);
 
 void print_network_automated(NetworkComplex nc, string name){    
     FILE *out = NULL;
@@ -505,46 +489,6 @@ void loadNetStack(stack<NetData>& net_stack){
     }while(yesno("Add another layer?"));
 }
 
-//This function is similar to the one above, but considers the case in which
-//the edges are a proper subset of all edges in a network.
-void subsetRandomMST(vector<Edge> in, vector<Edge> &keep, set<Edge>& rejects){
-    int numkept = 0, numneeded, root1, root2;
-    Edge next;
-    map<int, int> pmap;
-    unsigned seed = get_random_seed();
-    mt19937 gen(seed);
-
-    for(Edge e : in){
-        if(pmap.find(e.idx1) == pmap.end()){
-            pmap.insert(make_pair(e.idx1, pmap.size()));
-        }
-        if(pmap.find(e.idx2) == pmap.end()){
-            pmap.insert(make_pair(e.idx2, pmap.size()));
-        }
-    }
-
-    vector<int> union_find_table(pmap.size(), -1);
-    numneeded = pmap.size() - 1;
-
-    shuffle(in.begin(), in.end(), gen);
-    while(!in.empty()){
-        next = in[0];
-        in.erase(in.begin());
-        root1 = find_root(union_find_table, pmap[next.idx1]);
-        root2 = find_root(union_find_table, pmap[next.idx2]);
-        if(root1 != root2){
-            makeunion(union_find_table, root1, root2);
-            keep.push_back(next);
-            if(++numkept == numneeded) break;
-        }
-        else rejects.insert(next);
-    }
-
-    for(Edge next_edge : in){
-        rejects.insert(next_edge);
-    }
-}
-
 //Given a set of vectors to nearest neighbors, find the smallest length
 //among these vectors
 double get_min_dist(map<int, vector<vector<double>>> nns){
@@ -560,113 +504,6 @@ double get_min_dist(map<int, vector<vector<double>>> nns){
     }
 
     return sqrt(min_dist_sq);
-}
-
-/*After the edges at one length scale that fall within the edges of the next
-larger length scale have been determined, this function stitches together the 
-network at the smaller length scale, given a knowledge of edges at the small 
-length scale contained within a polygonal tiling of edges at the large length 
-scale.
-*/
-vector<Edge> stitch_network(vector<vector<Edge>> collection, map<int, vector<Edge>> adj_map, set<int> in_points, double to_keep){
-
-    int canonical_count, root1, root2;
-    int numNeeded, discardIter;
-    unordered_map<int, int> point_map;
-    vector<Edge> pool, next_al, retain, edgeMST, discard;
-    set<Edge> rejects;
-    Edge front;
-    vector<Edge>::iterator pool_iter;
-    unsigned seed = get_random_seed();
-    mt19937 gen(seed);
-
-    canonical_count = in_points.size();
-
-    for(int next_point : in_points){
-        point_map.insert(make_pair(next_point, point_map.size()));
-    }
-
-    vector<int> mst_table(point_map.size(), -1);
-
-    for(vector<Edge> next_set : collection){
-        edgeMST.clear();
-        subsetRandomMST(next_set, edgeMST, rejects);
-        for(Edge next_edge : edgeMST){
-            retain.push_back(next_edge);
-            root1 = find_root(mst_table, point_map[next_edge.idx1]);
-            root2 = find_root(mst_table, point_map[next_edge.idx2]);
-            if(root1 != root2){
-                makeunion(mst_table, root1, root2);
-                canonical_count --;
-            }
-        }
-    }
-
-    for(auto it = adj_map.begin(); it != adj_map.end(); it++){
-        next_al = it->second;
-
-        shuffle(next_al.begin(), next_al.end(), gen);
-        retain.push_back(next_al[0]);
-
-        if(next_al.size() > 1){
-            for(auto al_iter = next_al.begin()+1; al_iter != next_al.end(); al_iter++){
-                rejects.insert(*al_iter);
-            }
-        }
-    }
-
-    numNeeded = (int) ((retain.size() + rejects.size()) * to_keep);
-    pool.insert(pool.begin(), rejects.begin(), rejects.end());
-    shuffle(pool.begin(), pool.end(), gen);
-    for(pool_iter = pool.begin(); pool_iter != pool.end(); pool_iter ++){
-        if(canonical_count == 1) break;
-        front = *pool_iter;
-        root1 = find_root(mst_table, point_map[front.idx1]);
-        root2 = find_root(mst_table, point_map[front.idx2]);
-        if(root1 != root2){
-            makeunion(mst_table, root1, root2);
-            canonical_count --;
-            retain.push_back(front);
-        }
-        else discard.push_back(front);
-    }
-
-    discard.insert(discard.end(), pool_iter, pool.end());
-
-    shuffle(discard.begin(), discard.end(), gen);
-
-    discardIter = 0;
-    while(retain.size() < numNeeded && discardIter < discard.size()){
-        retain.push_back(discard[discardIter ++]);
-    }
-
-    return retain;
-}
-
-//Given a subset of all edges in a network, find out which points are retained,
-//and construct a new network complex with the reduced point set and edges
-//with relabled endpoint indices.
-NetworkComplex reduced_network(vector<Point> all_points, vector<Edge> kept_edges){
-
-    NetworkComplex reduced;
-    map<int, int> pmap;
-
-    for(Edge e : kept_edges){
-        if(pmap.find(e.idx1) == pmap.end()){
-            pmap.insert(make_pair(e.idx1, pmap.size()));
-            reduced.points.push_back(all_points[e.idx1]);
-        }
-        if(pmap.find(e.idx2) == pmap.end()){
-            pmap.insert(make_pair(e.idx2, pmap.size()));
-            reduced.points.push_back(all_points[e.idx2]);
-        }
-    }
-
-    for(Edge e : kept_edges){
-        reduced.edges.push_back(Edge(pmap[e.idx1], pmap[e.idx2]));
-    }
-
-    return reduced;
 }
 
 //Determine whether a query edge intersects an interior edge of a polygon, i.e.,
@@ -693,18 +530,6 @@ bool interior_crossing(vector<Point> pts, Edge e, PolygonComplex pc, int idx){
     return false;
 }
 
-/*
-Helper function for sieve_edges that calculates indices for use as keys
-to map pairs of adjacent polygons from a tiling of a network to edges straddling
-those polygons
-*/
-int adj_map_index(int index1, int index2, int total){
-    int low = index1 <= index2 ? index1 : index2;
-    int high = low == index1 ? index2 : index1;
-
-    return low * (total + total + 1 - low) / 2 + high;
-}
-
 /*This function is called when the edges describing the network at a given
 length scale have been given non-zero width and stored in the structure top,
 and the resulting geometrical object has been broken into a tiling of polygons
@@ -714,7 +539,7 @@ examined to determine whether they are contained entirely in one of these
 polygons. Those edges meeting this criterion are kept and returned in the
 structure retain.
 */
-NetworkComplex sieve_edges(NetworkComplex top, double length, NetworkComplex bottom, PolygonComplex pc, double to_keep){
+NetworkComplex sieve_edges(NetworkComplex top, NetworkComplex bottom, PolygonComplex pc, double to_keep){
 
     vector<Edge> kept_edges;
     vector<vector<Edge>> edge_collection;
@@ -1009,59 +834,10 @@ void make_edges_deformed(vector<vector<double>> rules, map<int, vector<vector<do
     else final_network = NetworkComplex(points, retain);
 }
 
-//Group points according to the large-scale bonds in which they lie. Also find
-//all edges within a given large-scale bond, and produce lists of edges
-//on the small scale that span large-scale bonds.
-void sort_edges(double length, NetworkComplex bottom, PolygonComplex pc, vector<vector<Edge>> &edge_collection){
+//Danger: only use this function if you know there will be a match!
+Point find_y_match(Point p1, Point p2, double y_val) {
 
-    int prev;
-    vector<int> curr_list;
-
-    for(int i = 0; i < pc.polygons.size(); i ++){
-        edge_collection.push_back(vector<Edge>());
-    }
-
-    //Data structure for efficient point-in-polygon tests
-    shared_ptr<HNetBVH> hnb = make_shared<HNetBVH>(pc.points, pc.polygons);
-
-    for(Edge next_edge : bottom.edges){
-        curr_list.clear();
-        vector<int> hits1 = hnb->within(bottom.points[next_edge.idx1]);
-        vector<int> hits2 = hnb->within(bottom.points[next_edge.idx2]);
-        curr_list.insert(curr_list.end(), hits1.begin(), hits1.end());
-        curr_list.insert(curr_list.end(), hits2.begin(), hits2.end());
-        prev = -1;
-        for(int iter = 0; iter < curr_list.size(); iter ++){
-            if(curr_list[iter] != prev){
-                edge_collection[curr_list[iter]].push_back(next_edge);
-            }
-            prev = curr_list[iter];
-        }
-    }
-}
-
-double calc_alignment(vector<Point> small_points, vector<Edge> small_edges, vector<Point> large_points, Edge skel_edge){
-    double alignment_sum = 0, mag, dx, dy, skel_nx, skel_ny;
-
-    dx = large_points[skel_edge.idx2].x - large_points[skel_edge.idx1].x;
-    dy = large_points[skel_edge.idx2].y - large_points[skel_edge.idx1].y;
-    mag = sqrt(dx*dx + dy*dy);
-    skel_nx = dx / mag;
-    skel_ny = dy / mag;
-
-    for(Edge next_edge : small_edges){
-        dx = small_points[next_edge.idx2].x - small_points[next_edge.idx1].x;
-        dy = small_points[next_edge.idx2].y - small_points[next_edge.idx1].y;
-        mag = sqrt(dx*dx + dy*dy);
-        alignment_sum += abs((dx * skel_nx + dy * skel_ny) / mag);
-    }
-
-    return alignment_sum / small_edges.size();
-}
-
-Point find_match(Point p1, Point p2, double y){
-    if(p1.y == y) return p1;
-    else return p2;
+    return abs(p1.y - y_val) < FLOAT_TOL ? p1 : p2;
 }
 
 void prepare_grips_displaced_interactive(NetworkComplex &nc, bool connect_top_bottom){
@@ -1104,8 +880,8 @@ void prepare_grips_displaced_interactive(NetworkComplex &nc, bool connect_top_bo
         maxy = p1.y > p2.y ? p1.y : p2.y;
         if(miny >= low && maxy <= high){
             replace.push_back(next);
-            if(miny == low) bps.insert(find_match(p1, p2, low));
-            if(maxy == high) tps.insert(find_match(p1, p2, high));
+            if(miny == low) bps.insert(find_y_match(p1, p2, low));
+            if(maxy == high) tps.insert(find_y_match(p1, p2, high));
         }
 
         else if(miny < low && maxy >= low){
@@ -1113,7 +889,7 @@ void prepare_grips_displaced_interactive(NetworkComplex &nc, bool connect_top_bo
             new_point = Point(intersect_x, low);
             pmap.insert(make_pair(new_point, pmap.size()));
             nc.points.push_back(new_point);
-            replace.push_back(Edge(pmap[new_point], pmap[find_match(p1, p2, maxy)]));
+            replace.push_back(Edge(pmap[new_point], pmap[find_y_match(p1, p2, maxy)]));
             bps.insert(new_point);
         }
         
@@ -1122,7 +898,7 @@ void prepare_grips_displaced_interactive(NetworkComplex &nc, bool connect_top_bo
             new_point = Point(intersect_x, high);
             pmap.insert(make_pair(new_point, pmap.size()));
             nc.points.push_back(new_point);
-            replace.push_back(Edge(pmap[find_match(p1, p2, miny)], pmap[new_point]));
+            replace.push_back(Edge(pmap[find_y_match(p1, p2, miny)], pmap[new_point]));
             tps.insert(new_point);
         }
     }
@@ -1185,8 +961,8 @@ void prepare_grips_displaced_automated(NetworkComplex &nc, bool connect_top_bott
             }
             replace_edges.push_back(Edge(pmap[p1], pmap[p2]));
             if(connect_top_bottom){
-                if(miny == low) bps.insert(find_match(p1, p2, low));
-                if(maxy == high) tps.insert(find_match(p1, p2, high));
+                if(miny == low) bps.insert(find_y_match(p1, p2, low));
+                if(maxy == high) tps.insert(find_y_match(p1, p2, high));
             }
         }
 
@@ -1197,7 +973,7 @@ void prepare_grips_displaced_automated(NetworkComplex &nc, bool connect_top_bott
                 pmap.insert(make_pair(new_point, pmap.size()));
                 replace_points.push_back(new_point);
             }
-            in_pt = find_match(p1, p2, maxy);
+            in_pt = find_y_match(p1, p2, maxy);
             if(pmap.find(in_pt) == pmap.end()){
                 pmap.insert(make_pair(in_pt, pmap.size()));
                 replace_points.push_back(in_pt);
@@ -1214,7 +990,7 @@ void prepare_grips_displaced_automated(NetworkComplex &nc, bool connect_top_bott
                 pmap.insert(make_pair(new_point, pmap.size()));
                 replace_points.push_back(new_point);
             }
-            in_pt = find_match(p1, p2, miny);
+            in_pt = find_y_match(p1, p2, miny);
             if(pmap.find(in_pt) == pmap.end()){
                 pmap.insert(make_pair(in_pt, pmap.size()));
                 replace_points.push_back(in_pt);
@@ -1450,7 +1226,7 @@ NetworkComplex edge_hierarchy_interactive(vector<double> bounds, int polyflag, b
         }
         else{
             makeedges(bdat.rules, bdat.nns, bounds, bottom);
-            bottom = sieve_edges(top, length, bottom, pc, bdat.to_keep);
+            bottom = sieve_edges(top, bottom, pc, bdat.to_keep);
         }
 
         if(bdat.displace){
@@ -1498,10 +1274,14 @@ NetworkComplex edge_hierarchy_interactive(vector<double> bounds, int polyflag, b
     return top;
 }
 
-void create_network_interactive(bool align, bool connect, bool compact, char polyflag){
+void create_network_interactive(bool align, bool connect, bool compact, char polyflag, output_mode mode){
 
     vector<double> bounds;
     NetworkComplex nc;
+    string file_name, response;
+    bool valid;
+    float height;
+    int num_read;
 
     while(true){
         bounds = getdoubles("Enter bottom left and top right bounds: ");
@@ -1518,11 +1298,61 @@ void create_network_interactive(bool align, bool connect, bool compact, char pol
 
     nc = edge_hierarchy_interactive(bounds, polyflag, align, connect, !compact);
 
-    if(! compact){
-        print_network(nc, "Enter a file name for output: ");
+    if(mode == output_mode::network) {
+        if(! compact){
+            print_network(nc, "Enter a file name for output: ");
+        }
+        else{
+            print_network_compact(nc, "Enter a file name for output: ");
+        }
     }
-    else{
-        print_network_compact(nc, "Enter a file name for output: ");
+    else if(mode == output_mode::svg) {
+        vector<double> tab_params;
+        do {
+            valid = true;
+            tab_params = getdoubles("Enter the taper width and height, the corner radius, and the tab height: ");
+            if(tab_params.size() == 4) {
+                cerr << "Enter four non-negative numbers.\n";
+                valid = false;
+                continue;
+            }
+            for(double param : tab_params) {
+                if(param <= 0) {
+                    valid = false;
+                    cerr << "Enter four non-negative numbers.\n";
+                    break;
+                }
+            }
+        } while (! valid);
+        do {
+            cerr << "Enter the SVG file name: ";
+            getline(cin, file_name);
+            if(file_name.compare("") != 0) break;
+            else {
+                cerr << "Enter a name.\n";
+            }
+        } while(true);
+        export_svg(nc, tab_params[0], tab_params[1], tab_params[2], tab_params[3], file_name);
+    }
+    else {
+        do {
+            valid = true;
+            cerr << "Enter the extrusion height: ";
+            getline(cin, response);
+            if((num_read = sscanf(response.c_str(), "%f", &height)) < 1 || height <= 0){
+                cerr << "Enter a positive number.\n";
+                valid = false;
+            }
+        } while(! valid);
+        do {
+            cerr << "Enter the STL file name: ";
+            getline(cin, file_name);
+            if(file_name.compare("") != 0) break;
+            else {
+                cerr << "Enter a name.\n";
+            }
+        } while(true);
+        export_extruded_svg(nc, height, file_name);
     }
 }
 
@@ -1593,7 +1423,7 @@ NetworkComplex edge_hierarchy_automated(HNTask task, vector<LatticeRecipe> recip
         }
         else{
             makeedges(recipes[iter].rules, recipes[iter].nns, bounds, bottom);
-            bottom = sieve_edges(top, length, bottom,pc,blayer.bond_occupation);
+            bottom = sieve_edges(top, bottom,pc,blayer.bond_occupation);
         }
 
         if(blayer.displacement > 0){
@@ -1643,7 +1473,7 @@ NetworkComplex edge_hierarchy_automated(HNTask task, vector<LatticeRecipe> recip
     return top;
 }
 
-void create_networks_automated(HNJob job, bool compact){
+void create_networks_automated(HNJob job, bool compact, output_mode mode){
 
     vector<LatticeRecipe> recipes;
 
@@ -1660,11 +1490,19 @@ void create_networks_automated(HNJob job, bool compact){
     //Build each realization for each combination of bond portions
     for(HNTask next_task : job.tasks){
         NetworkComplex nc = edge_hierarchy_automated(next_task, recipes, !compact);
-        if(! compact){
-            print_network_automated(nc, next_task.output_file);
+        if(mode == output_mode::network){
+            if(! compact){
+                print_network_automated(nc, next_task.output_file);
+            }
+            else{
+                print_network_compact_automated(nc, next_task.output_file);
+            }
         }
-        else{
-            print_network_compact_automated(nc, next_task.output_file);
+        else if(mode == output_mode::svg) {
+            export_svg(nc, next_task.taper_width, next_task.taper_height, next_task.corner_radius, next_task.tab_height, next_task.output_file);
+        }
+        else {
+            export_extruded_svg(nc, next_task.ext_height,next_task.output_file);
         }
     }
 }
@@ -1673,10 +1511,11 @@ int main(int argc, char **argv){
     bool align = false, connect = true, compact = true, interactive = true;
     int c, polyflag = 0;
     string job_file_name;
+    output_mode mode = output_mode::network;
 
     opterr = 0;
 
-    while((c = getopt(argc, argv, "adj:pv")) != -1){
+    while((c = getopt(argc, argv, "adej:pvs")) != -1){
         switch(c) {
             case 'a':
                 align = true;
@@ -1684,12 +1523,18 @@ int main(int argc, char **argv){
             case 'd':
                 connect = false;
                 break;
+            case 'e':
+                mode = output_mode::stl_extrude;
+                break;
             case 'j':
                 interactive = false;
                 job_file_name.assign(string(optarg));
                 break;
             case 'p':
                 polyflag = 1;
+                break;
+            case 's':
+                mode = output_mode::svg;
                 break;
             case 'v':
                 compact = false;
@@ -1709,17 +1554,20 @@ int main(int argc, char **argv){
          }
     }
 
+    //Initialize variables used for exact geometric predicates
+    exactinit();
+
     if(interactive) {
-        create_network_interactive(align, connect, compact, polyflag);
+        create_network_interactive(align, connect, compact, polyflag, mode);
     }
 
     else {
         HNJob job;
-        if(! parse_hnet_job(job_file_name, job)){
+        if(! parse_hnet_job(job_file_name, job, mode)){
             cerr << "The specified job file could not be parsed.\n";
             return -1;
         }
-        create_networks_automated(job, compact);
+        create_networks_automated(job, compact, mode);
     }
 
     return 0;

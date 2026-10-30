@@ -8,8 +8,6 @@ CUDA_INC = -I/usr/local/cuda-13/include
 
 all:
 	make hnet_maker
-	make svgwrite
-	make stlwrite
 	make rsolve
 
 lib/libpredicates.a:
@@ -24,30 +22,31 @@ lib/libhnetbvh.a:
 	mkdir -p lib
 	$(CC) $(FLAGS) -c src/hnet_bvh.cpp -o lib/libhnetbvh.a
 
-hnet_maker: lib/libpredicates.a lib/libnetutils.a lib/libhnetbvh.a
-	$(CC) $(FLAGS) src/create_hierarchical_network.cpp -o hnet_maker -pthread -L./lib -lpredicates -lnetutils -lhnetbvh
+lib/libsvgwrite.a:
+	$(CC) $(FLAGS) -c src/write_svg.cpp -o lib/libsvgwrite.a
 
-svgwrite: lib/libpredicates.a lib/libnetutils.a
-	$(CC) $(FLAGS) src/write_svg.cpp -o svgwrite -L./lib -lpredicates -lnetutils
-
-lib/triangle.o:
+lib/libtriangle.a:
 	mkdir -p lib
-	gcc -O -DLINUX -I/usr/X11R6/include -L/usr/X11R6/lib -DTRILIBRARY -DANSI_DECLARATORS -c -o lib/triangle.o src/triangle.c
+	gcc -O -DLINUX -I/usr/X11R6/include -L/usr/X11R6/lib -DTRILIBRARY -DANSI_DECLARATORS -c -o lib/libtriangle.a src/triangle.c
 
-stlwrite: lib/triangle.o
-	$(CC) $(FLAGS) lib/triangle.o src/write_stl.cpp -o stlwrite -lm
+lib/libstlwrite.a:
+	$(CC) $(FLAGS) -c src/write_stl.cpp -o lib/libstlwrite.a
 
-rsolve: lib/libpredicates.a lib/libnetutils.a
-	$(CC) $(FLAGS) $(CUDA_INC) src/rsolve.cpp -o rsolve $(CHOLMOD_LINK) -L./lib -lpredicates -lnetutils
+hnet_maker: lib/libnetutils.a lib/libhnetbvh.a lib/libtriangle.a\
+	lib/libsvgwrite.a lib/libstlwrite.a
+	$(CC) $(FLAGS) src/create_hierarchical_network.cpp -o hnet_maker -pthread -L./lib -lnetutils -lhnetbvh -ltriangle -lsvgwrite -lstlwrite -lm
+
+rsolve: lib/libpredicates.a lib/libnetutils.a lib/libhnetbvh.a
+	$(CC) $(FLAGS) $(CUDA_INC) src/rsolve.cpp -o rsolve $(CHOLMOD_LINK) -L./lib -lpredicates -lnetutils -lhnetbvh
 
 hnclean:
 	rm hnet_maker
 
 svgclean:
-	rm svgwrite
+	rm lib/libsvgwrite.a
 
 stlclean:
-	rm stlwrite
+	rm lib/libstlwrite.a
 
 rsclean:
 	rm rsolve
@@ -61,9 +60,10 @@ predclean:
 netuclean:
 	rm lib/libnetutils.a
 
+triclean:
+	rm lib/libtriangle.a
+
 clean:
 	rm hnet_maker
-	rm svgwrite
 	rm lib/*
-	rm stlwrite
 	rm rsolve

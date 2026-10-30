@@ -12,11 +12,13 @@
 #include <unordered_map>
 #include <cstdint>
 #include <random>
+#include <list>
 
 using namespace std;
 
+//Primes used in computing hash functions
 #define PRIME1 (int) 1021297
-#define PRIME2 (int) 1021651 //Primes for computing hash functions
+#define PRIME2 (int) 1021651
 #define FLOAT_TOL 1E-10 //Tolerance for deeming floating point numbers different
 #define BIG_SLOPE 1E10
 #define INF 1E12
@@ -139,6 +141,30 @@ struct NetworkComplex {
     }
 };
 
+//Data type for storing ordered pairs of indices into lists of geometrical
+//objects
+struct IdxPair{
+
+    IdxPair(int arg1, int arg2){
+        idx1 = min(arg1, arg2);
+        idx2 = max(arg1, arg2);
+    }
+    
+    int idx1, idx2;
+
+    //Utility functions establishing equality and ordering relations
+    bool operator == (const IdxPair& pair) const {
+        return pair.idx1 == idx1 && pair.idx2 == idx2;
+    }
+
+    friend bool operator < (const IdxPair &p1, const IdxPair &p2){
+        if(p2.idx2 > p1.idx2) return true;
+        else if(p2.idx2 < p1.idx2) return false;
+        else if(p2.idx1 > p1.idx1) return true;
+        else return false;
+    }
+};
+
 /*
  * A polygon described as a set of edges arranged in CCW order
  * This class is only designed to handle convex polygons with no holes.
@@ -226,7 +252,7 @@ string enter_decline(string message);
 
 void open_dat_file(string prompt, ifstream& file_stream);
 
-void open_output_file(string prompt, ofstream& file_stream);
+//void open_output_file(string prompt, ofstream& file_stream);
 
 //Perform a uniform displacement of all points in a set
 void displace(vector<Point> &points, double xdisp, double ydisp);
@@ -281,4 +307,31 @@ NetworkComplex random_connected(NetworkComplex in, double to_keep);
 //After edges have been removed from a network, cull unused points and reassign
 //edge endpoint indices
 void reassign_points_edges(NetworkComplex &nc, vector<Edge> kept_edges);
+
+double calc_alignment(vector<Point> small_points, vector<Edge> small_edges, vector<Point> large_points, Edge skel_edge);
+
+//Group points according to the large-scale bonds in which they lie. Also find
+//all edges within a given large-scale bond, and produce lists of edges
+//on the small scale that span large-scale bonds.
+void sort_edges(double length, NetworkComplex bottom, PolygonComplex pc, vector<vector<Edge>> &edge_collection);
+
+void add_edge(NetworkComplex &nc, map<Point, int> &pmap, Point p1, Point p2);
+
+void subsetRandomMST(vector<Edge> in, vector<Edge> &keep, set<Edge>& rejects);
+
+vector<Edge> stitch_network(vector<vector<Edge>> collection, map<int, vector<Edge>> adj_map, set<int> in_points, double to_keep);
+
+NetworkComplex reduced_network(vector<Point> all_points, vector<Edge> kept_edges);
+
+int adj_map_index(int index1, int index2, int total);
+
+/*
+*Locate a starting point in a cycle that is not part of a colinear group of
+*three or more points
+*/
+int pick_start(vector<int> cycle, NetworkComplex nc);
+
+void build_plc_map(NetworkComplex nc, map<int, list<int>> &emap);
+
+vector<vector<int>> build_cycles(map<int, list<int>> emap);
 #endif

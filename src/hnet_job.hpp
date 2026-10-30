@@ -11,11 +11,19 @@
 #include <sstream>
 #include <cmath>
 #include <climits>
+#include <typeinfo>
 
 //Default number of digits of precision to use in reporting bond portions
 #define DEFAULT_BP_PRECISION 3
 
 using namespace std;
+
+//Type to distinguish between three types of output: exportation as a 
+//network, specified by point geometry and topology, exportation as an SVG
+//file, in which the network has grips added for conductivity tests, or
+//exportation as an STL file, in which a surface is created by extruding the
+//network out of the plane.
+enum class output_mode {network, svg, stl_extrude};
 
 //Utility function for validating an integer argument
 bool read_int(string name, string arg, int &value, int min, int max){
@@ -34,7 +42,24 @@ bool read_int(string name, string arg, int &value, int min, int max){
     return true;
 }
 
-//Utility function for validating an float argument
+//Utility function for validating a float argument
+bool read_float(string name, string arg, float &value, float min, float max){
+
+    int num_read;
+
+    if(! (num_read = sscanf(arg.c_str(), "%f", &value))){
+        cerr << "Parameter " << name << " must be a real number.\n";
+        return false;
+    }
+    if( value < min || value > max){
+        cerr << "Out of bounds argument for parameter \"" << name << "\".\n";
+        return false;
+    }
+
+    return true;
+}
+
+//Utility function for validating a double argument
 bool read_double(string name, string arg, double &value, double min, double max){
 
     int num_read;
@@ -67,6 +92,56 @@ bool read_bool(string name, string arg, bool &value){
     return false;
 }
 
+bool check_for_attribute(shared_ptr<isle::Element> elem, string name, string &value, bool needed){
+
+    if(! elem->query_first_attribute(name, value)){
+        if(needed){
+            cerr << "Error in parsing a layer: missing " << name << ".\n";
+        }
+        return false;
+    }
+
+    return true;
+}
+
+//Make sure a parameter is specified, and that its value is within a
+//specified range.
+bool validate_parameter(shared_ptr<isle::Element> elem, string name, double &param, double min_val, double max_val){
+
+    string result;
+
+    if(! check_for_attribute(elem, name, result, true)){
+        cerr << "The parameter " << name << " was not specified.\n";
+        return false;
+    }
+    else {
+        if(! read_double(name, result, param, min_val, max_val)){
+            cerr << name << " must be between " << min_val << " and " << max_val << "." << endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool validate_parameter(shared_ptr<isle::Element> elem, string name, float &param, float min_val, float max_val){
+
+    string result;
+
+    if(! check_for_attribute(elem, name, result, true)){
+        cerr << "The parameter " << name << " was not specified.\n";
+        return false;
+    }
+    else {
+        if(! read_float(name, result, param, min_val, max_val)){
+            cerr << name << " must be between " << min_val << " and " << max_val << "." << endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 //Representation of a single stage in a hierarchical network creation process
 struct HNLayer {
 
@@ -96,14 +171,16 @@ struct HNTask {
         alignment_file = "";
         bp_prod = 1;
         displaced = false;
-        add_grips = false;
         connected = true;
         connect_top_bottom = false;
+        add_grips = false;
     }
 
     string poly_file, skeleton_file, top_file, alignment_file, output_file;
-    bool add_grips, displaced, connected, connect_top_bottom;
-    double grip_lower, grip_upper, bp_prod, minx, miny, maxx, maxy;
+    bool displaced, connected, connect_top_bottom, add_grips;
+    double bp_prod, minx, miny, maxx, maxy, grip_lower, grip_upper, taper_width;
+    double taper_height, corner_radius, tab_height;
+    float ext_height;
     vector<HNLayer> layers;
 };
 
@@ -117,18 +194,6 @@ struct HNJob {
     vector<double> scales;
     vector<HNTask> tasks;
 };
-
-bool check_for_attribute(shared_ptr<isle::Element> elem, string name, string &value, bool needed){
-
-    if(! elem->query_first_attribute(name, value)){
-        if(needed){
-            cerr << "Error in parsing a layer: missing " << name << ".\n";
-        }
-        return false;
-    }
-
-    return true;
-}
 
 //Append descriptive tags to output file names to indicate bond portions
 void augment_file_names(HNTask &task, double bp, int num_digits){
@@ -288,14 +353,27 @@ string sequence_tag(int seq_num, int total_digits){
 //will be used as they are. Otherwise, it will be assumed that file names are
 //stubs, to which information should be appended specifying bond portions and
 //realization numbers.
-bool parse_hnet_job(string job_file_name, HNJob &job){
+bool parse_hnet_job(string job_file_name, HNJob &job, output_mode mode){
 
     int num_read, realizations = 1, report_digits = DEFAULT_BP_PRECISION, lnum;
-    double min_h, max_h;
+    double min_h, max_h, taper_w, taper_h, c_rad, tab_h;
+    float height;
     shared_ptr<isle::Element> root;
     HNTask task;
     string result;
     vector<shared_ptr<isle::Element>> layers;
+    string extension;
+
+    //Choose the correct extension for reporting networks
+    if(mode == output_mode::network){
+        extension = ".dat";
+    }
+    else if(mode == output_mode::svg){
+        extension = ".svg";
+    }
+    else if(mode == output_mode::stl_extrude){
+        extension = ".stl";
+    }
 
     //Attempt to parse a valid element tree, and make sure the root element is
     //of type hnet_job
@@ -392,9 +470,9 @@ bool parse_hnet_job(string job_file_name, HNJob &job){
         lnum ++;
     }
 
-    //If grips are desired and random displacement has been added, bottom
-    //and top grip heights should be specified.
-    if(job.tasks[0].add_grips && job.tasks[0].displaced){
+    //Make sure that, if large-scale or small-scale bonds have been displaced
+    //and grips are desired, grip heights are spcified
+    if((mode != output_mode::network || job.tasks[0].add_grips) && job.tasks[0].displaced){
         if(check_for_attribute(root, string("grip_heights"), result, true)){
             if((num_read = sscanf(result.c_str(), "%lf %lf", &min_h, &max_h)) != 2){
                 cerr << "The grip heights field takes two numbers as its argument.\n";
@@ -415,6 +493,37 @@ bool parse_hnet_job(string job_file_name, HNJob &job){
         }
     }
 
+    //If the SVG mode is desired, information about grip taper sections and
+    //tabs should be specified.
+    if(mode == output_mode::svg) {
+        if(! validate_parameter(root, "taper_width", taper_w, DBL_MIN, DBL_MAX)){
+            return false;
+        }
+        if(! validate_parameter(root, "taper_height", taper_h, DBL_MIN, DBL_MAX)){
+            return false;
+        }
+        if(! validate_parameter(root, "corner_radius", c_rad, DBL_MIN, DBL_MAX)){
+            return false;
+        }
+        if(! validate_parameter(root, "tab_height", tab_h, DBL_MIN, DBL_MAX)){
+            return false;
+        }
+        for(int iter = 0; iter < job.tasks.size(); iter ++){
+            job.tasks[iter].taper_width = taper_w;
+            job.tasks[iter].taper_height = taper_h;
+            job.tasks[iter].corner_radius = c_rad;
+            job.tasks[iter].tab_height = tab_h;
+        }
+    }
+
+    else if(mode == output_mode::stl_extrude) {
+        if(! validate_parameter(root, "extrusion_height", height, FLT_MIN, FLT_MAX)){
+            return false;
+        }
+        for(int iter = 0; iter < job.tasks.size(); iter ++) {
+            job.tasks[iter].ext_height = height;
+        }
+    }
 
     //Prepare for multiple realizations, if desired
     if(realizations > 1) {
@@ -471,7 +580,7 @@ bool parse_hnet_job(string job_file_name, HNJob &job){
             job.tasks[iter].alignment_file += ".dat";
         }
         if(job.tasks[iter].output_file.compare("") != 0) {
-            job.tasks[iter].output_file += ".dat";
+            job.tasks[iter].output_file += extension;
         }
     }
 
