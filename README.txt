@@ -8,17 +8,12 @@ also provided for subtractive and additive manufacturing approaches to allow
 such networks to be fabricated and tested. The project currently encompasses
 the following executables:
 
--hnet_maker: A terminal based program that prompts the user for information
-about a possibly hierarchical, filamentous network
+-hnet_maker: A terminal-based program that obtains information from input
+scripts or interactive prompts to create networks, and can report them as
+planar line graphs, or as SVG or STL files
 
 -rsolve: A program for computing the resistance of a filamentous resistor 
 network
-
--stlwrite: A program for creating STL files to allow for 3D simulations and
-3D printing of networks
-
--svgwrite: A program for creating SVG files from filamentous networks, to
-allow them to be cut with a laser cutter or cutting plotter.
 
 In addition, files ending in ".lat" are included. Such files specify the
 structure of a filamentous lattice. Upon learning the system by which these
