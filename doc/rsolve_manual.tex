@@ -90,13 +90,19 @@ At each level, a network structure is specified in terms of a lattice and
 a scale factor that sets the lattice spacing. Lattices are built row-by-row
 within a set of prescribed Cartesian bounds. Lattice information is read from
 .lat files, which specify the locations of vertices and the displacements from
-vertices to neighbors to which those vertices are connected by a bond. Disorder
-can be applied to networks in two ways: vertices of the network can be randomly
-displaced according to a Gaussian distribution, and connections between vertices
-can be removed, such that the of proportion of retained vertices is $p$, with
-$p \in (0, 1]$. Dilution of bonds can be carried out either by ensuring all
-vertices belong to a single connected component, or by a purely random process. 
-Purely random dilution can be specified by the \texttt{-d} flag.
+vertices to neighbors to which those vertices are connected by a bond. Four such
+files are provided by default tri.lat, hcmb.lat, kag.lat, and square.lat, which
+produce triangular, honeycomb, Kagome, and square lattices, respectively. If the
+program will be run from a different directory, it can be useful to set the
+\texttt{LAT\_DIR} system variable to the directory in which the software is
+installed, so that fully qualified paths do not have to be entered.
+
+Disorder can be applied to networks in two ways: vertices of the network can be
+randomly displaced according to a Gaussian distribution, and connections between
+vertices can be removed, such that the of proportion of retained vertices is 
+$p$, with $p \in (0, 1]$. Dilution of bonds can be carried out either by 
+ensuring all vertices belong to a single connected component, or by a purely 
+random process. Purely random dilution can be specified by the \texttt{-d} flag.
 
 After the first network structure has been applied, an arbitrary number of 
 additional levels of structure can be specified. Note that levels should
@@ -324,12 +330,14 @@ large-scale bonds are 10 times the length of small-scale bonds.}
 \label{fig:simple_ht_isle_file}
 \end{figure}
 
-\begin{wrapfigure}[14]{r}{.5\textwidth}
+%\begin{wrapfigure}[11]{r}{.5\textwidth}
+\begin{figure}[h]
 \centering
 \includegraphics[width=.5\textwidth]{figures/tri_tri_2_2_1_p1.png}
 \caption{A small, hierarchical triangular lattice created by the script in
 Figure \ref{fig:simple_ht_isle_file}.}
-\end{wrapfigure}
+\end{figure}
+%\end{wrapfigure}
 
 The ISLE file in Figure ~\ref{fig:svg_stl_ht_isle_file} demonstrates the
 creation of SVG and STL files. The attributes for both types of output are
@@ -340,7 +348,7 @@ Unneeded attributes will simply be ignored, such that a single job file can
 do double duty. The results of these two usage modes are displayed in Figure
 \ref{fig:svg_stl_comparison}.
 
-\begin{figure}[!htb]
+\begin{figure}[H]
 \framebox[\textwidth]{
 \begin{minipage}[c]{\textwidth}
 \texttt{
@@ -380,7 +388,7 @@ attributes are specified to support SVG and STL file creation.}
 \label{fig:svg_stl_ht_isle_file}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}
 \centering
 \includegraphics[width=\textwidth]{figures/svg_stl_comparison.png}
 \caption{The results of running \texttt{hnet\_maker} with the job file in

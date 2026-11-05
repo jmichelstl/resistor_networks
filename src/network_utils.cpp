@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <memory>
 #include "hnet_bvh.hpp"
+#include <cstring>
 
 using namespace std;
 
@@ -324,13 +325,35 @@ bool import_lattice(string name, vector<vector<double>>& rules, map<int,vector<v
     bool again, blank, fileopen = false;
     vector<double> rule, nn;
     int lcount = 0, pointiter, nncount = 0, ruleiter = 0;
+    char *lat_dir_name, *full_path;
 
     //Attempt to open lattice file
     latfile.open(name);
         
     if(!latfile.is_open()){
-        cerr << "The specified file could not be read read\n";
-        return false;
+        //cerr << "The specified file could not be read read\n";
+        //return false;
+        //Check whether the file is a relative name within a standard directory
+        if((lat_dir_name = getenv("LAT_DIR"))){
+            full_path = (char *) malloc(sizeof(char) * (strlen(name.c_str()) + strlen(lat_dir_name) + 2));
+            //Make sure there is a "/" delimiter separating the directory and
+            //file name
+            if(lat_dir_name[strlen(lat_dir_name)-1] == '/'){
+                sprintf(full_path, "%s%s", lat_dir_name, name.c_str());
+            }
+            else{
+                sprintf(full_path, "%s/%s", lat_dir_name, name.c_str());
+            }
+            latfile.open(string(full_path));
+            if(! latfile.is_open()){
+                cerr << "The specified file could not be read read\n";
+                return false;
+            }
+        }
+        else {
+            cerr << "The specified file could not be read read\n";
+            return false;
+        }
     }   
 
     //Process rules until a blank line is reached
